@@ -40,14 +40,18 @@ ehthumbs.db
 Thumbs.db
 Basic/.DS_Store
 .vscode/
+__pycache__
 
-# Images and text #
+
+# Images and text and models #
 ##################
 *.pgm
 *.txt
 *.loc
+*.pt
 
 # My attempts #
 ##################
 PyG_tutorials
 trial.*
+
