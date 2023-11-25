@@ -46,3 +46,8 @@ Basic/.DS_Store
 *.pgm
 *.txt
 *.loc
+
+# My attempts #
+##################
+PyG_tutorials
+trial.*
