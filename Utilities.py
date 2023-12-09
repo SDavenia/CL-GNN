@@ -2,9 +2,13 @@
 This file contains the necessary Utilities functions
 """
 import matplotlib.pyplot as plt
+from scipy.spatial.distance import cdist
+
 import torch
 from torch.nn import MSELoss
 from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
+
 import random
 
 
@@ -87,6 +91,58 @@ class PairData(Data):
         if key == 'edge_index_2':
             return self.x_2.size(0)
         return super().__inc__(key, value, *args, **kwargs)
+
+
+def prepare_dataloader_distance(hom_counts, dataset, device, batch_size = 32, dist = 'L1'):
+    """
+    Given a list of the homomorphism counts for the dataset and a specified distance,
+    it returns the train validation and test dataloaders.
+    """
+    # Compute the distance matrix
+    if dist not in ['cosine', 'L1', 'L2']:
+        raise ValueError("Invalid value for 'dist'. Expected 'cosine', 'L1', or 'L2'.")
+    elif dist == 'L1':
+        dist_matrix = cdist(hom_counts, hom_counts, metric='cityblock')
+    elif dist == 'L2':
+        dist_matrix = cdist(hom_counts, hom_counts, metric='euclidean')
+    elif dist == 'cosine':
+        dist_matrix = cdist(hom_counts, hom_counts, metric='cosine')
+
+    # Split with 60, 20, 20 split (for now not randomized, to implement)
+    train_dataset = dataset[:int(0.6*len(dataset) + 1)]
+    val_dataset = dataset[int(0.6*len(dataset) + 1):int(0.8*len(dataset) + 1)]
+    test_dataset = dataset[int(0.8*len(dataset) + 1):]
+
+    train_data_list = []
+    for ind1, graph1 in enumerate(train_dataset):
+        for ind2, graph2 in enumerate(train_dataset[ind1+1:]):
+            ind2 += (ind1 + 1)
+            train_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
+                                x_2=graph2.x, edge_index_2=graph2.edge_index,
+                                distance = float(dist_matrix[ind1, ind2])).to(device))  
+    
+    val_data_list = []
+    for ind1, graph1 in enumerate(val_dataset):
+        for ind2, graph2 in enumerate(val_dataset[ind1+1:]):
+            ind2 += (ind1 + 1)
+            val_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
+                                x_2=graph2.x, edge_index_2=graph2.edge_index,
+                                distance = float(dist_matrix[ind1 + len(train_dataset), ind2 + len(train_dataset)])).to(device))    
+
+    test_data_list = []
+    for ind1, graph1 in enumerate(test_dataset):
+        for ind2, graph2 in enumerate(test_dataset[ind1+1:]):
+            ind2 += (ind1 + 1)
+            test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
+                                x_2=graph2.x, edge_index_2=graph2.edge_index,
+                                distance = float(dist_matrix[ind1 + len(train_dataset) + len(test_dataset), ind2 + len(train_dataset) + len(test_dataset)])).to(device))    
+
+    
+    train_loader = DataLoader(train_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=True)
+    val_loader = DataLoader(val_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
+    test_loader = DataLoader(test_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
+
+    return train_loader, val_loader, test_loader
 
 
 
