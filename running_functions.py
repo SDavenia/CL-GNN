@@ -75,41 +75,6 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
     best_valid_loss = float("inf")
 
     # We loop forward on the epoch number
-    for epoch in range(N_EPOCHS):
-
-        start_time = time.time()
-
-        # Train the model on the training set using the dataloader
-        train_loss = train(model, train_iterator, optimizer, criterion)
-        # And validate your model on the validation set
-        valid_loss = evaluate(model, valid_iterator, criterion)
-
-        end_time = time.time()
-
-        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
-
-        # If we find a better model, we save the weights so later we may want to reload it
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            torch.save(model.state_dict(), "tut1-model.pt")
-        if (epoch+1) % 10 == 0:
-            print(f"Epoch: {epoch+1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s")
-            print(
-                f"\tTrain Loss: {train_loss:.3f}"
-            )
-            print(
-                f"\t Val. Loss: {valid_loss:.3f}"
-            )
-
-
-
-def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=150):
-    # Set an EPOCH number!
-    N_EPOCHS = epoch_number
-
-    best_valid_loss = float("inf")
-
-    # We loop forward on the epoch number
     start_time = time.time()
     for epoch in range(N_EPOCHS):
         # Train the model on the training set using the dataloader
@@ -120,7 +85,7 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
         # If we find a better model, we save the weights so later we may want to reload it
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
-            torch.save(model.state_dict(), "tut1-model.pt")
+            model.save() # Save model in models folder
         if (epoch+1) % 10 == 0:
             end_time = time.time()
             epoch_mins, epoch_secs = epoch_time(start_time, end_time)
