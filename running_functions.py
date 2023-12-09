@@ -27,8 +27,8 @@ def train(model, iterator, optimizer, criterion):
         optimizer.zero_grad()
 
         # This runs the forward function on your model (you don't need to call it directly)
-        predictions = model(batch.x_1, batch.edge_index_1, batch.x_1_batch, 
-                            batch.x_2, batch.edge_index_2, batch.x_2_batch)
+        predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+                            batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
 
         # Calculate the loss on the output of the model
         loss = criterion(predictions, batch.distance)
@@ -57,8 +57,8 @@ def evaluate(model, iterator, criterion):
 
         # The remaining part is the same with the difference of not using the optimizer to backpropagation
         for batch in iterator:
-            predictions = model(batch.x_1, batch.edge_index_1, batch.x_1_batch, 
-                                batch.x_2, batch.edge_index_2, batch.x_2_batch)
+            predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+                                batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
             loss = criterion(predictions, batch.distance)
 
             epoch_loss += loss.item()
@@ -100,3 +100,37 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
             print(
                 f"\t Val. Loss: {valid_loss:.3f}"
             )
+
+
+
+def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=150):
+    # Set an EPOCH number!
+    N_EPOCHS = epoch_number
+
+    best_valid_loss = float("inf")
+
+    # We loop forward on the epoch number
+    start_time = time.time()
+    for epoch in range(N_EPOCHS):
+        # Train the model on the training set using the dataloader
+        train_loss = train(model, train_iterator, optimizer, criterion)
+        # And validate your model on the validation set
+        valid_loss = evaluate(model, valid_iterator, criterion)
+
+        # If we find a better model, we save the weights so later we may want to reload it
+        if valid_loss < best_valid_loss:
+            best_valid_loss = valid_loss
+            torch.save(model.state_dict(), "tut1-model.pt")
+        if (epoch+1) % 10 == 0:
+            end_time = time.time()
+            epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+            
+            print(f"Epoch: {epoch+1:02} | Time for 10 epochs: {epoch_mins}m {epoch_secs}s")
+            print(
+                f"\tTrain Loss: {train_loss:.3f}"
+            )
+            print(
+                f"\t Val. Loss: {valid_loss:.3f}"
+            )
+            start_time = time.time()
+
