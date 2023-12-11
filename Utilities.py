@@ -16,6 +16,7 @@ import random
 def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
     """
     This function takes as input two matrices and plots them next to each other.
+    The same colour scale is used in both
     """
 
     cmap = plt.cm.get_cmap('viridis')
@@ -25,11 +26,11 @@ def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
 
     # Plot matrix_run1
     plt1 = axs[0].imshow(matrix_run1[0:num_elements, 0:num_elements], cmap=cmap)
-    axs[0].set_title('Matrix Run 1')
+    axs[0].set_title('Run 1')
 
     # Plot matrix_run2
     plt2 = axs[1].imshow(matrix_run2[0:num_elements, 0:num_elements], cmap=cmap)
-    axs[1].set_title('Matrix Run 2')
+    axs[1].set_title('Run 2')
 
     # Create a single color bar for both subplots
     cbar = fig.colorbar(plt1, ax=axs, shrink=0.6, label='Color scale')
@@ -38,6 +39,31 @@ def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
     plt1.set_clim(vmin=min(matrix_run1.min(), matrix_run2.min()), vmax=max(matrix_run1.max(), matrix_run2.max()))
     plt2.set_clim(vmin=min(matrix_run1.min(), matrix_run2.min()), vmax=max(matrix_run1.max(), matrix_run2.max()))
 
+    plt.show()
+
+def plot_matrix_runs_different_scale(matrix_run1, matrix_run2, num_elements):
+    """
+    This function takes as input two matrices and plots them next to each other.
+    The same colour scale is used in both
+    """
+
+    cmap = plt.cm.get_cmap('viridis')
+
+    # Set up subplots
+    fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+
+    # Plot matrix_run1
+    plt1 = axs[0].imshow(matrix_run1[0:num_elements, 0:num_elements], cmap=cmap)
+    axs[0].set_title('Run 1')
+    cbar1 = plt.colorbar(plt1, ax=axs[0])  # Add colorbar for matrix_run1
+
+    # Plot matrix_run2
+    plt2 = axs[1].imshow(matrix_run2[0:num_elements, 0:num_elements], cmap=cmap)
+    axs[1].set_title('Run 2')
+    cbar2 = plt.colorbar(plt2, ax=axs[1])  # Add colorbar for matrix_run2
+
+    # Adjust layout to make room for colorbars
+    plt.tight_layout()
     plt.show()
 
 
