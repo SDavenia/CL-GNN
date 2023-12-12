@@ -97,17 +97,20 @@ def plot_results(y, predictions, subset = None):
     plt.show()
 
 ########################### DataLoader functions ###########################
-def number_of_neighbours(graph):
-    """
-    Assuming that there are no disconnected nodes which do not appear in edge_index, this modifies
-     the features of each node to only be one vector containing its number of neighbours
-    """
-    counts = graph.edge_index[0].unique(return_counts=True)[1].reshape(-1, 1)
-    if len(counts) == graph.x.shape[0]:
-        graph.x = counts
-        return graph
-    print(f"The input graph contains some unconnected node, this pre-transform can't work with it")
-    raise TypeError()
+class Add_ID_Count_Neighbours:
+    def __init__(self):
+        self.graph_index = 0
+
+    def __call__(self, data):
+        # Assign a unique ID (graph index) as an attribute to each graph
+        counts = data.edge_index[0].unique(return_counts=True)[1].reshape(-1, 1)
+        if len(counts) == data.x.shape[0]:
+            data.x = counts
+            data.id = torch.tensor([self.graph_index], dtype=torch.long)
+            self.graph_index += 1
+            return data
+        print(f"The input graph contains some unconnected node, this pre-transform can't work with it")
+        raise TypeError()
 
 
 class PairData(Data):
@@ -118,57 +121,6 @@ class PairData(Data):
             return self.x_2.size(0)
         return super().__inc__(key, value, *args, **kwargs)
 
-
-def prepare_dataloader_distance(hom_counts, dataset, device, batch_size = 32, dist = 'L1'):
-    """
-    Given a list of the homomorphism counts for the dataset and a specified distance,
-    it returns the train validation and test dataloaders.
-    """
-    # Compute the distance matrix
-    if dist not in ['cosine', 'L1', 'L2']:
-        raise ValueError("Invalid value for 'dist'. Expected 'cosine', 'L1', or 'L2'.")
-    elif dist == 'L1':
-        dist_matrix = cdist(hom_counts, hom_counts, metric='cityblock')
-    elif dist == 'L2':
-        dist_matrix = cdist(hom_counts, hom_counts, metric='euclidean')
-    elif dist == 'cosine':
-        dist_matrix = cdist(hom_counts, hom_counts, metric='cosine')
-
-    # Split with 60, 20, 20 split (for now not randomized, to implement)
-    train_dataset = dataset[:int(0.6*len(dataset) + 1)]
-    val_dataset = dataset[int(0.6*len(dataset) + 1):int(0.8*len(dataset) + 1)]
-    test_dataset = dataset[int(0.8*len(dataset) + 1):]
-
-    train_data_list = []
-    for ind1, graph1 in enumerate(train_dataset):
-        for ind2, graph2 in enumerate(train_dataset[ind1+1:]):
-            ind2 += (ind1 + 1)
-            train_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
-                                x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[ind1, ind2])).to(device))  
-    
-    val_data_list = []
-    for ind1, graph1 in enumerate(val_dataset):
-        for ind2, graph2 in enumerate(val_dataset[ind1+1:]):
-            ind2 += (ind1 + 1)
-            val_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
-                                x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[ind1 + len(train_dataset), ind2 + len(train_dataset)])).to(device))    
-
-    test_data_list = []
-    for ind1, graph1 in enumerate(test_dataset):
-        for ind2, graph2 in enumerate(test_dataset[ind1+1:]):
-            ind2 += (ind1 + 1)
-            test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
-                                x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[ind1 + len(train_dataset) + len(test_dataset), ind2 + len(train_dataset) + len(test_dataset)])).to(device))    
-
-    
-    train_loader = DataLoader(train_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=True)
-    val_loader = DataLoader(val_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
-    test_loader = DataLoader(test_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
-
-    return train_loader, val_loader, test_loader
 
 def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts'):
     """
@@ -227,9 +179,9 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             dist_matrix = dist_matrix / np.sqrt(p)
         assert all(entry <= 1  and entry >= 0 for row in dist_matrix for entry in row), f"Not all entries in dist_matrix are valid"
 
-
-
-    # Split with 60, 20, 20 split (for now not randomized, to implement)
+   
+    # Split with 60, 20, 20 split
+    dataset = dataset.shuffle()
     train_dataset = dataset[:int(0.6*len(dataset) + 1)]
     val_dataset = dataset[int(0.6*len(dataset) + 1):int(0.8*len(dataset) + 1)]
     test_dataset = dataset[int(0.8*len(dataset) + 1):]
@@ -238,27 +190,32 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
     for ind1, graph1 in enumerate(train_dataset):
         for ind2, graph2 in enumerate(train_dataset[ind1+1:]):
             ind2 += (ind1 + 1)
+            id1 = train_dataset[ind1].id.item()
+            id2 = train_dataset[ind2].id.item()
             train_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[ind1, ind2])).to(device))  
-    
+                                distance = float(dist_matrix[id1, id2])).to(device)) 
+
     val_data_list = []
     for ind1, graph1 in enumerate(val_dataset):
         for ind2, graph2 in enumerate(val_dataset[ind1+1:]):
             ind2 += (ind1 + 1)
+            id1 = train_dataset[ind1].id.item()
+            id2 = train_dataset[ind2].id.item()
             val_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[ind1 + len(train_dataset), ind2 + len(train_dataset)])).to(device))    
+                                distance = float(dist_matrix[id1, id2])).to(device)) 
 
     test_data_list = []
     for ind1, graph1 in enumerate(test_dataset):
         for ind2, graph2 in enumerate(test_dataset[ind1+1:]):
             ind2 += (ind1 + 1)
+            id1 = train_dataset[ind1].id.item()
+            id2 = train_dataset[ind2].id.item()
             test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[ind1 + len(train_dataset) + len(test_dataset), ind2 + len(train_dataset) + len(test_dataset)])).to(device))    
+                                distance = float(dist_matrix[id1, id2])).to(device)) 
 
-    
     train_loader = DataLoader(train_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=True)
     val_loader = DataLoader(val_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
     test_loader = DataLoader(test_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)

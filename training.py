@@ -58,6 +58,7 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
     best_valid_loss = float("inf")
     train_losses = []
     validation_losses = []
+    best_epoch = 0
 
     start_time = time.time()
     for epoch in range(N_EPOCHS):
@@ -69,6 +70,7 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
 
         # Save model with best validation loss
         if valid_loss < best_valid_loss:
+            best_epoch = epoch
             best_valid_loss = valid_loss
             model.save() # Save model in models folder
         if (epoch+1) % 10 == 0:
@@ -84,6 +86,7 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
             )
             start_time = time.time()
     if return_losses == True:
+        print(f"Best epoch was {best_epoch}")
         return train_losses, validation_losses
     
 
