@@ -10,7 +10,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 
 import random
-
+import json
 
 ########################### Plotting functions ###########################
 def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
@@ -133,6 +133,101 @@ def prepare_dataloader_distance(hom_counts, dataset, device, batch_size = 32, di
         dist_matrix = cdist(hom_counts, hom_counts, metric='euclidean')
     elif dist == 'cosine':
         dist_matrix = cdist(hom_counts, hom_counts, metric='cosine')
+
+    # Split with 60, 20, 20 split (for now not randomized, to implement)
+    train_dataset = dataset[:int(0.6*len(dataset) + 1)]
+    val_dataset = dataset[int(0.6*len(dataset) + 1):int(0.8*len(dataset) + 1)]
+    test_dataset = dataset[int(0.8*len(dataset) + 1):]
+
+    train_data_list = []
+    for ind1, graph1 in enumerate(train_dataset):
+        for ind2, graph2 in enumerate(train_dataset[ind1+1:]):
+            ind2 += (ind1 + 1)
+            train_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
+                                x_2=graph2.x, edge_index_2=graph2.edge_index,
+                                distance = float(dist_matrix[ind1, ind2])).to(device))  
+    
+    val_data_list = []
+    for ind1, graph1 in enumerate(val_dataset):
+        for ind2, graph2 in enumerate(val_dataset[ind1+1:]):
+            ind2 += (ind1 + 1)
+            val_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
+                                x_2=graph2.x, edge_index_2=graph2.edge_index,
+                                distance = float(dist_matrix[ind1 + len(train_dataset), ind2 + len(train_dataset)])).to(device))    
+
+    test_data_list = []
+    for ind1, graph1 in enumerate(test_dataset):
+        for ind2, graph2 in enumerate(test_dataset[ind1+1:]):
+            ind2 += (ind1 + 1)
+            test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
+                                x_2=graph2.x, edge_index_2=graph2.edge_index,
+                                distance = float(dist_matrix[ind1 + len(train_dataset) + len(test_dataset), ind2 + len(train_dataset) + len(test_dataset)])).to(device))    
+
+    
+    train_loader = DataLoader(train_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=True)
+    val_loader = DataLoader(val_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
+    test_loader = DataLoader(test_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
+
+    return train_loader, val_loader, test_loader
+
+def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts'):
+    """
+    Input:
+        - path to .homson file as the output of homcount.
+        - dataset corresponding to the specified homson file.
+        - device: cpu or cuda depending on whether cuda is available.
+        - batch_size: batch size for the torch loaders.
+        - dist: metric to use to compute the distance between two vectors.
+        - scaling: specifies whether it should use absolute counts, counts densities, or rescaled counts densities.
+    """
+    # Compute the distance matrix
+    if dist not in ['cosine', 'L1', 'L2']:
+        raise ValueError("Invalid value for dist. Expected cosine, L1, or L2.")
+    if scaling not in ['counts', 'counts_density', 'counts_density_rescaled']:
+        raise ValueError("Invalid value for scaling. Expected counts, counts_density or count_density_rescaled")
+    
+    # Read file
+    with open(file_path) as f:
+        data = json.load(f)
+    
+    if scaling == 'counts':
+        hom_counts = [element['counts'] for element in data['data']]
+    else:
+        # Extract number of vertices of each graph in the dataset
+        vertices = [data['data'][i]['vertices'] for i in range(len(data['data']))]
+
+        # Extract number of vertices for the patterns used and number of patterns used
+        pattern_sizes = data['pattern_sizes']
+        p = len(pattern_sizes)
+
+        # Compute the counts densitied
+        for i in range(len(data['data'])):
+            n_vertices = vertices[i]
+            den = [n_vertices**pattern_sizes[j] for j in range(p)]
+            data['data'][i]['counts_densities'] = [data['data'][i]['counts'][j] / den[j] for j in range(p)]
+        
+        hom_counts = [element['counts_densities'] for element in data['data']]
+        assert all(entry <= 1 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
+        assert all(entry >= 0 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
+
+
+    # Compute the distance matrix
+    if dist == 'L1':
+        dist_matrix = cdist(hom_counts, hom_counts, metric='cityblock')
+    elif dist == 'L2':
+        dist_matrix = cdist(hom_counts, hom_counts, metric='euclidean')
+    elif dist == 'cosine':
+        dist_matrix = cdist(hom_counts, hom_counts, metric='cosine')
+    
+    # Rescale dividing by the number of homomorphism counts extracted if necessary
+    if scaling == 'counts_density_rescaled' and dist != 'cosine':  # since for cosine it makes no sense to rescale since always in [0,2]
+        if dist == 'L1':
+            dist_matrix = dist_matrix / p
+        else:
+            dist_matrix = dist_matrix / np.sqrt(p)
+        assert all(entry <= 1  and entry >= 0 for row in dist_matrix for entry in row), f"Not all entries in dist_matrix are valid"
+
+
 
     # Split with 60, 20, 20 split (for now not randomized, to implement)
     train_dataset = dataset[:int(0.6*len(dataset) + 1)]

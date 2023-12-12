@@ -68,11 +68,16 @@ def evaluate(model, iterator, criterion):
 
 
 
-def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=150):
-    # Set an EPOCH number!
+def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=150, return_losses=False):
+    """
+    Performs training for the specified number of epochs.
+    Then returns training and validation losses if required
+    """
     N_EPOCHS = epoch_number
 
     best_valid_loss = float("inf")
+    train_losses = []
+    validation_losses = []
 
     # We loop forward on the epoch number
     start_time = time.time()
@@ -81,6 +86,9 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
         train_loss = train(model, train_iterator, optimizer, criterion)
         # And validate your model on the validation set
         valid_loss = evaluate(model, valid_iterator, criterion)
+
+        train_losses.append(train_loss)
+        validation_losses.append(valid_loss)
 
         # If we find a better model, we save the weights so later we may want to reload it
         if valid_loss < best_valid_loss:
@@ -98,4 +106,7 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
                 f"\t Val. Loss: {valid_loss:.3f}"
             )
             start_time = time.time()
+    if return_losses == True:
+        return train_losses, validation_losses
+    
 

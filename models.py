@@ -39,7 +39,7 @@ class GCN_pairs_distance(torch.nn.Module):
         # 2. Readout layer
         x1 = global_mean_pool(x1, batch1)  # [batch_size, hidden_channels]
         # 3. Apply a final linear transformation on the aggregated embedding
-        x1 = torch.nn.functional.dropout(x1, p=0.5, training=self.training)
+        x1 = torch.nn.functional.dropout(x1, p=0.5)
         x1 = self.lin(x1)
 
         # 1. Obtain node embeddings for graph 2
@@ -51,7 +51,7 @@ class GCN_pairs_distance(torch.nn.Module):
         # 2. Readout layer
         x2 = global_mean_pool(x2, batch2)  # [batch_size, hidden_channels]
         # 3. Apply a final linear transformation on the aggregated embedding
-        x2 = torch.nn.functional.dropout(x2, p=0.5, training=self.training)
+        x2 = torch.nn.functional.dropout(x2, p=0.5)
         x2 = self.lin(x2)
 
         dist = self.pdist(x1, x2)
