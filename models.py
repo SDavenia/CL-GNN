@@ -13,19 +13,22 @@ class GCN_pairs_distance(torch.nn.Module):
     """
     def __init__(self, input_features, hidden_channels, output_embeddings, name, dist = 'L2'):
         super(GCN_pairs_distance, self).__init__()
+
+        self.dist = dist
+
         self.conv1 = GCNConv(input_features, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, hidden_channels)
         self.conv3 = GCNConv(hidden_channels, hidden_channels)
         self.lin = Linear(hidden_channels, output_embeddings)
         self.name = name
         
-        if dist not in ['cosine', 'L1', 'L2']:
+        if self.dist not in ['cosine', 'L1', 'L2']:
             raise ValueError("Invalid value for 'dist'. Expected 'cosine', 'L1', or 'L2'.")
-        elif dist == 'L1':
+        elif self.dist == 'L1':
             self.pdist = PairwiseDistance(p=1)
-        elif dist == 'L2':
+        elif self.dist == 'L2':
             self.pdist = PairwiseDistance(p=2)
-        elif dist == 'cosine':
+        elif self.dist == 'cosine':
             self.pdist = CosineSimilarity()
 
 
@@ -53,9 +56,11 @@ class GCN_pairs_distance(torch.nn.Module):
         # 3. Apply a final linear transformation on the aggregated embedding
         x2 = torch.nn.functional.dropout(x2, p=0.5)
         x2 = self.lin(x2)
-
-        dist = self.pdist(x1, x2)
-        return dist
+        if self.dist == 'cosine':
+            vdist = 1 - self.pdist(x1, x2)
+        else:
+            vdist = self.pdist(x1, x2)
+        return vdist
     
     def save(self):
         """

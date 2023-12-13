@@ -134,9 +134,9 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
     """
     # Compute the distance matrix
     if dist not in ['cosine', 'L1', 'L2']:
-        raise ValueError("Invalid value for dist. Expected cosine, L1, or L2.")
+        raise ValueError("Invalid value for dist. Expected one of: cosine, L1, or L2.")
     if scaling not in ['counts', 'counts_density', 'counts_density_rescaled']:
-        raise ValueError("Invalid value for scaling. Expected counts, counts_density or count_density_rescaled")
+        raise ValueError("Invalid value for scaling. Expected one of: counts, counts_density or counts_density_rescaled")
     
     # Read file
     with open(file_path) as f:
@@ -200,8 +200,8 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
     for ind1, graph1 in enumerate(val_dataset):
         for ind2, graph2 in enumerate(val_dataset[ind1+1:]):
             ind2 += (ind1 + 1)
-            id1 = train_dataset[ind1].id.item()
-            id2 = train_dataset[ind2].id.item()
+            id1 = val_dataset[ind1].id.item()
+            id2 = val_dataset[ind2].id.item()
             val_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
                                 distance = float(dist_matrix[id1, id2])).to(device)) 
@@ -210,8 +210,8 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
     for ind1, graph1 in enumerate(test_dataset):
         for ind2, graph2 in enumerate(test_dataset[ind1+1:]):
             ind2 += (ind1 + 1)
-            id1 = train_dataset[ind1].id.item()
-            id2 = train_dataset[ind2].id.item()
+            id1 = test_dataset[ind1].id.item()
+            id2 = test_dataset[ind2].id.item()
             test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
                                 distance = float(dist_matrix[id1, id2])).to(device)) 
