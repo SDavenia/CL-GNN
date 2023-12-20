@@ -41,6 +41,7 @@ def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
     plt2.set_clim(vmin=min(matrix_run1.min(), matrix_run2.min()), vmax=max(matrix_run1.max(), matrix_run2.max()))
 
     plt.show()
+    plt.close()
 
 def plot_matrix_runs_different_scale(matrix_run1, matrix_run2, num_elements):
     """
@@ -66,9 +67,39 @@ def plot_matrix_runs_different_scale(matrix_run1, matrix_run2, num_elements):
     # Adjust layout to make room for colorbars
     plt.tight_layout()
     plt.show()
+    plt.close()
 
 
-def plot_results(y, predictions, subset = None):
+def save_plot_losses(train_losses, validation_losses, save_path):
+    # Save plot of train and validation loss
+    save_img = save_path + '.png'
+    plot_losses(train_losses, validation_losses, save_path=save_img)
+
+    # Save train and validation losses
+    save_train_loss = save_path + 'train_loss.txt'
+    with open(save_train_loss, 'w') as file:
+        for loss in train_losses:
+            file.write(f'{loss}\n')
+
+    save_validation_loss = save_path + 'validation_loss.txt'
+    with open(save_validation_loss, 'w') as file:
+        for loss in validation_losses:
+            file.write(f'{loss}\n')
+
+def plot_losses(train_losses, validation_losses, save_path=None):
+    plt.plot(train_losses, label='train losses')
+    plt.plot(validation_losses, label='validation losses')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE loss')
+    plt.title('Line Plot of train and validation loss')
+    plt.legend()
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+    plt.close()
+
+def plot_results(y, predictions, subset = None, save_path=None):
     """
     Plot of predicted vs actual results.
     If subset is specified only subset observations at random will be plotted.
@@ -94,8 +125,11 @@ def plot_results(y, predictions, subset = None):
     plt.title('Actual vs Predicted values')
     plt.legend()
 
-    # Show the plot
-    plt.show()
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+    plt.close()
 
 ########################### DataLoader functions ###########################
 class Add_ID_Count_Neighbours:
