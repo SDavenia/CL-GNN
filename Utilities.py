@@ -11,6 +11,7 @@ from torch_geometric.loader import DataLoader
 
 import random
 import json
+import numpy as np
 
 ########################### Plotting functions ###########################
 def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
@@ -170,6 +171,8 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
         dist_matrix = cdist(hom_counts, hom_counts, metric='euclidean')
     elif dist == 'cosine':
         dist_matrix = cdist(hom_counts, hom_counts, metric='cosine')
+
+    dist_matrix = dist_matrix.astype('float32')
     
     # Rescale dividing by the number of homomorphism counts extracted if necessary
     if scaling == 'counts_density_rescaled' and dist != 'cosine':  # since for cosine it makes no sense to rescale since always in [0,2]
@@ -194,7 +197,7 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             id2 = train_dataset[ind2].id.item()
             train_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[id1, id2])).to(device)) 
+                                distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
 
     val_data_list = []
     for ind1, graph1 in enumerate(val_dataset):
@@ -204,7 +207,7 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             id2 = val_dataset[ind2].id.item()
             val_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[id1, id2])).to(device)) 
+                                distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
 
     test_data_list = []
     for ind1, graph1 in enumerate(test_dataset):
@@ -214,7 +217,7 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             id2 = test_dataset[ind2].id.item()
             test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = float(dist_matrix[id1, id2])).to(device)) 
+                                distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
 
     train_loader = DataLoader(train_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=True)
     val_loader = DataLoader(val_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
