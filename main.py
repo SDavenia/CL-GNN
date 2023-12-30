@@ -22,8 +22,8 @@ def parse_command_line_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, required=True, choices=['GCN3'],
                             help='Name of the model (choose from GCN3)')
-    parser.add_argument('--dataset', type=str, required=True, choices=['MUTAG'],
-                            help='Name of the dataset (choose from MUTAG)')
+    parser.add_argument('--dataset', type=str, required=True, choices=['MUTAG', 'ENZYMES'],
+                            help='Name of the dataset (choose from MUTAG, ENZYMES)')
     parser.add_argument('--nhoms', type=int, required=True, help='Number of homomorphisms to compute the distance')
     parser.add_argument('--hidden_size', type=int, default=64, help='Dimension of the hidden model size')
     parser.add_argument('--embedding_size', type=int, default=300, help='Dimension of the embedding')
@@ -50,7 +50,9 @@ def main():
 
     if args.dataset == 'MUTAG':
         dataset = TUDataset(root='/tmp/MUTAG_transformed', name='MUTAG', pre_transform=Add_ID_Count_Neighbours())
-
+    if args.dataset == 'ENZYMES':
+        dataset = TUDataset(root='/tmp/ENZYMES_transformed', name='ENZYMES', pre_transform=Add_ID_Count_Neighbours())
+    
     torch.manual_seed(args.seed)
     hom_counts_path = 'data/homomorphism_counts/' + args.dataset + "_" + str(args.nhoms) + ".homson"
     if not os.path.exists(hom_counts_path):
