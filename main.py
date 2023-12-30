@@ -24,7 +24,7 @@ def parse_command_line_arguments():
                             help='Name of the model (choose from GCN3)')
     parser.add_argument('--dataset', type=str, required=True, choices=['MUTAG'],
                             help='Name of the dataset (choose from MUTAG)')
-    parser.add_argument('--ncounts', type=int, required=True, help='Number of homomorphism counts to compute the distance')
+    parser.add_argument('--nhoms', type=int, required=True, help='Number of homomorphisms to compute the distance')
     parser.add_argument('--hidden_size', type=int, default=64, help='Dimension of the hidden model size')
     parser.add_argument('--embedding_size', type=int, default=300, help='Dimension of the embedding')
     parser.add_argument('--distance', type=str, default='L1', choices=['L1', 'L2', 'cosine'],
@@ -52,13 +52,13 @@ def main():
         dataset = TUDataset(root='/tmp/MUTAG_transformed', name='MUTAG', pre_transform=Add_ID_Count_Neighbours())
 
     torch.manual_seed(args.seed)
-    hom_counts_path = 'data/homomorphism_counts/' + args.dataset + "_" + str(args.ncounts) + ".homson"
+    hom_counts_path = 'data/homomorphism_counts/' + args.dataset + "_" + str(args.nhoms) + ".homson"
     if not os.path.exists(hom_counts_path):
         raise FileNotFoundError(f"The file '{hom_counts_path}' was not found.")
 
     train_loader, val_loader, test_loader = prepare_dataloader_distance_scale(hom_counts_path, dataset, batch_size=32, dist=args.distance, device = device, scaling = args.distance_scaling)
 
-    name = args.dataset + "_" + str(args.ncounts) + "_" + args.model_name + "_" + args.distance + "_" + args.distance_scaling + "_" + str(args.hidden_size) + "_" + str(args.embedding_size)
+    name = args.dataset + "_" + str(args.nhoms) + "_" + args.model_name + "_" + args.distance + "_" + args.distance_scaling + "_" + str(args.hidden_size) + "_" + str(args.embedding_size)
     if args.model_name == 'GCN3':
         model = GCN_pairs_distance(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name, dist = args.distance).to(device)
     
@@ -79,8 +79,7 @@ def main():
         
     saved_model_path = 'models/' + name + '.pt'
     model.load_state_dict(torch.load(saved_model_path))
-    
-    y, predictions = score(model, test_loader)
+    y, predictions = score(model, test_loader, device)
     predictions_path = 'results/actual_vs_predicted/' + name + '.png'
     plot_results(y, predictions, save_path = predictions_path)
 

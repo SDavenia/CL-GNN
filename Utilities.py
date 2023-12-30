@@ -104,8 +104,8 @@ def plot_results(y, predictions, subset = None, save_path=None):
     Plot of predicted vs actual results.
     If subset is specified only subset observations at random will be plotted.
     """
-    y_array = y.numpy()
-    predictions_array = predictions.numpy()
+    y_array = y.cpu().numpy()
+    predictions_array = predictions.cpu().numpy()
 
     y_array = y_array
     predictions_array = predictions_array
@@ -262,16 +262,16 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
 
 
 ########################### Evaluation functions ###########################
-def score(model, loader):
+def score(model, loader, device = 'cpu'):
     """
     Given a (pre-trained) model and a dataloader, 
     It returns:
         - y: the true values of the regressor
         - predict: the predicted values according to the model
     """
-        
-    y = torch.Tensor()
-    predictions = torch.Tensor()
+     
+    y = torch.Tensor().to(device)
+    predictions = torch.Tensor().to(device)
 
     model.eval()
     with torch.no_grad():
