@@ -133,20 +133,24 @@ def plot_results(y, predictions, subset = None, save_path=None):
 
 ########################### DataLoader functions ###########################
 class Add_ID_Count_Neighbours:
+    """
+    Adds a unique ID to each graph and initializes its node features to the number of neighbours
+    """
     def __init__(self):
         self.graph_index = 0
 
     def __call__(self, data):
         # Assign a unique ID (graph index) as an attribute to each graph
-        counts = data.edge_index[0].unique(return_counts=True)[1].reshape(-1, 1)
-        if len(counts) == data.x.shape[0]:
-            data.x = counts
-            data.id = torch.tensor([self.graph_index], dtype=torch.long)
-            self.graph_index += 1
-            return data
-        print(f"The input graph contains some unconnected node, this pre-transform can't work with it")
-        raise TypeError()
+        # If a node is disconnected from the other 
+        node_indices, node_neighbours = data.edge_index[0].unique(return_counts=True)
+        counts = torch.zeros(data.x.shape[0], dtype=torch.int64)
+        counts[node_indices] = node_neighbours
+        counts = counts.reshape(-1, 1)
 
+        data.x = counts
+        data.id = torch.tensor([self.graph_index], dtype=torch.long)
+        self.graph_index += 1
+        return data
 
 class PairData(Data):
     def __inc__(self, key, value, *args, **kwargs):

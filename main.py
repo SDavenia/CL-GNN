@@ -51,7 +51,7 @@ def main():
     if args.dataset == 'MUTAG':
         dataset = TUDataset(root='/tmp/MUTAG_transformed', name='MUTAG', pre_transform=Add_ID_Count_Neighbours())
     if args.dataset == 'ENZYMES':
-        dataset = TUDataset(root='/tmp/ENZYMES_transformed', name='ENZYMES', pre_transform=Add_ID_Count_Neighbours())
+        dataset = TUDataset(root='/tmp/ENZYMES_transformed', name='ENZYMES', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
     
     torch.manual_seed(args.seed)
     hom_counts_path = 'data/homomorphism_counts/' + args.dataset + "_" + str(args.nhoms) + ".homson"
