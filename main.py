@@ -53,14 +53,14 @@ def main():
         dataset = TUDataset(root='/tmp/MUTAG_transformed', name='MUTAG', pre_transform=Add_ID_Count_Neighbours())
     if args.dataset == 'ENZYMES':
         dataset = TUDataset(root='/tmp/ENZYMES_transformed', name='ENZYMES', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
-    
+    print(f"Finished reading dataset:{args.dataset}")
     torch.manual_seed(args.seed)
     hom_counts_path = 'data/homomorphism_counts/' + args.dataset + "_" + str(args.nhoms) + ".homson"
     if not os.path.exists(hom_counts_path):
         raise FileNotFoundError(f"The file '{hom_counts_path}' was not found.")
-
+    print(f"Finished reading homomorphism counts")
     train_loader, val_loader, test_loader = prepare_dataloader_distance_scale(hom_counts_path, dataset, batch_size=32, dist=args.distance, device = device, scaling = args.distance_scaling)
-
+    print(f"Prepared dataloader")
     name = args.dataset + "_" + str(args.nhoms) + "_" + args.model_name + "_" + args.distance + "_" + args.distance_scaling + "_" + str(args.hidden_size) + "_" + str(args.embedding_size)
     if args.model_name == 'GCN3':
         model = GCN3(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name, dist = args.distance).to(device)
@@ -73,6 +73,8 @@ def main():
     # Perform training and obtain plot for train and validation loss
     #  save training and validation and also the plot
     train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, patience=args.patience, return_losses=True)
+    print(f"Training:")
+    train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, return_losses=True)
 
     # Specify the directory where you want to save the plot and text files
     save_loss_directory = 'results/train_val_loss/' + name
