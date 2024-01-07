@@ -72,9 +72,8 @@ def main():
     
     # Perform training and obtain plot for train and validation loss
     #  save training and validation and also the plot
-    train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, patience=args.patience, return_losses=True)
     print(f"Training:")
-    train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, return_losses=True)
+    train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, patience=args.patience, return_losses=True)
 
     # Specify the directory where you want to save the plot and text files
     save_loss_directory = 'results/train_val_loss/' + name
