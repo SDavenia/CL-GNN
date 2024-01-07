@@ -71,9 +71,9 @@ def plot_matrix_runs_different_scale(matrix_run1, matrix_run2, num_elements):
 
 
 def save_plot_losses(train_losses, validation_losses, save_path):
-    # Save plot of train and validation loss
+    # Save plot of train and validation loss, exclude the first one otherwise loss unreadable
     save_img = save_path + '.png'
-    plot_losses(train_losses, validation_losses, save_path=save_img)
+    plot_losses(train_losses[1:], validation_losses[1:], save_path=save_img)
 
     # Save train and validation losses
     save_train_loss = save_path + 'train_loss.txt'

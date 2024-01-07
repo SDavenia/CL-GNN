@@ -16,12 +16,12 @@ from Utilities import Add_ID_Count_Neighbours, PairData, prepare_dataloader_dist
 
 from training import training_loop
 
-from models import GCN_pairs_distance
+from models import GCN3, GCN3_MLP
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, required=True, choices=['GCN3'],
-                            help='Name of the model (choose from GCN3)')
+    parser.add_argument('--model_name', type=str, required=True, choices=['GCN3', 'GCN3_MLP'],
+                            help='Name of the model (choose from GCN3, GCN3_MLP)')
     parser.add_argument('--dataset', type=str, required=True, choices=['MUTAG', 'ENZYMES'],
                             help='Name of the dataset (choose from MUTAG, ENZYMES)')
     parser.add_argument('--nhoms', type=int, required=True, help='Number of homomorphisms to compute the distance')
@@ -32,6 +32,7 @@ def parse_command_line_arguments():
     parser.add_argument('--distance_scaling', type=str, default='counts', choices=['counts', 'counts_density', 'counts_density_rescaled'],
                             help='Specify scaling to use for the distance (choose from counts, counts_density, counts_density_rescaled])')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs for training')
+    parser.add_argument('--patience', type=int, default=-1, help='Patience for automatic early stopping to occur. If -1 no early stopping.')
     parser.add_argument('--seed', type=int, default=1312, help='Seed for random generation')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate for Adam optimizer')
     return parser.parse_args()
@@ -62,14 +63,16 @@ def main():
 
     name = args.dataset + "_" + str(args.nhoms) + "_" + args.model_name + "_" + args.distance + "_" + args.distance_scaling + "_" + str(args.hidden_size) + "_" + str(args.embedding_size)
     if args.model_name == 'GCN3':
-        model = GCN_pairs_distance(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name, dist = args.distance).to(device)
+        model = GCN3(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name, dist = args.distance).to(device)
+    if args.model_name == 'GCN3_MLP':
+        model = GCN3_MLP(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name).to(device)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = torch.nn.MSELoss().to(device)
     
     # Perform training and obtain plot for train and validation loss
     #  save training and validation and also the plot
-    train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, return_losses=True)
+    train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, patience=args.patience, return_losses=True)
 
     # Specify the directory where you want to save the plot and text files
     save_loss_directory = 'results/train_val_loss/' + name
@@ -77,8 +80,10 @@ def main():
     
     # Load best model and obtain predictions
     if args.model_name == 'GCN3':
-        model = GCN_pairs_distance(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name, dist = args.distance).to(device)
-        
+        model = GCN3(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name, dist = args.distance).to(device)
+    if args.model_name == 'GCN3_MLP':
+        model = GCN3_MLP(input_features=dataset.num_node_features, hidden_channels=args.hidden_size, output_embeddings=args.embedding_size, name=name).to(device)
+    
     saved_model_path = 'models/' + name + '.pt'
     model.load_state_dict(torch.load(saved_model_path))
     y, predictions = score(model, test_loader, device)
