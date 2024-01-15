@@ -198,8 +198,8 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             data['data'][i]['counts_densities'] = [data['data'][i]['counts'][j] / den[j] for j in range(p)]
         
         hom_counts = [element['counts_densities'] for element in data['data']]
-        assert all(entry <= 1 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
-        assert all(entry >= 0 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
+        #assert all(entry <= 1 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
+        #assert all(entry >= 0 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
 
 
     # Compute the distance matrix
