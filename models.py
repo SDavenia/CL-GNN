@@ -50,7 +50,10 @@ class GCN_k_m(torch.nn.Module):
                 self.GCN_layers.append(GCNConv(input_features, hidden_channels))
                 input_features = hidden_channels # From second layer we'll need this.and
             # Final GCN layer
-            self.final_GCN = GCNConv(hidden_channels, output_embeddings)
+            if self.n_conv_layers == 1:
+                self.final_GCN = GCNConv(input_features, output_embeddings)
+            else:
+                self.final_GCN = GCNConv(hidden_channels, output_embeddings)
         
         # If there are some linear layers
         else:
@@ -100,7 +103,7 @@ class GCN_k_m(torch.nn.Module):
         x2 = global_mean_pool(x2, batch2)
         x2 = self.relu(x2)
 
-        if self.Linear_layers:
+        if self.n_linear_layers > 0:
             for layer in self.Linear_layers:
                 x1 = layer(x1)
                 x1 = self.relu(x1)
