@@ -19,6 +19,30 @@ from training import training_loop
 
 from models import GCN3, GCN3_MLP, GCN_k_m
 
+def parse_command_line_arguments():
+    parser = argparse.ArgumentParser()
+
+    # Specify the model, dataset and vector of homomorphisms.
+    parser.add_argument('--model_name', type=str, required=True, choices=['GCN3', 'GCN3_MLP', 'GCN_k_m'],
+                            help='Name of the model (choose from GCN3, GCN3_MLP, GCN_k_m)')
+    parser.add_argument('--dataset', type=str, required=True, choices=['MUTAG', 'ENZYMES'],
+                            help='Name of the dataset (choose from MUTAG, ENZYMES)')
+    parser.add_argument('--nhoms', type=int, required=True, help='Number of homomorphisms to compute the distance')
+
+    
+    # Specify parameters controlling the distance to be computed between the homcount vectors
+    # (If models not ending with MLP are used, the same distance is also employed for the embeddings).  
+    parser.add_argument('--distance', type=str, default='L1', choices=['L1', 'L2', 'cosine'],
+                            help='Specify distance to use for embeddings (choose from L1, L2, cosine)')
+    parser.add_argument('--hom_types', type=str, default='counts', choices=['counts', 'counts_density'],
+                            help='Specify whether to use with homomorphism counts or counts densities')
+    
+    # Specify training parameters
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs for training')
+    parser.add_argument('--patience', type=int, default=-1, help='Patience for automatic early stopping to occur. If -1 no early stopping.')    
+    return parser.parse_args()
+
+
 
 def train_GCN_k_m(params, for_testing=False):
     #print(f"Trying out one")
@@ -116,6 +140,7 @@ def train_GCN_k_m(params, for_testing=False):
 
 
 if __name__ == "__main__":
+    args = parse_command_line_arguments()
     search = pyhopper.Search(
         {   
             # Training hyper-parameters
@@ -131,14 +156,14 @@ if __name__ == "__main__":
             "mlp_distance": pyhopper.choice([True, False]),
 
             # Not actual hyper-parameters: just fixed and needed for the function.
-            "distance": pyhopper.choice(['L1']),
-            "nhoms": pyhopper.choice([50]),
-            "hom_types": pyhopper.choice(['counts']),
-            "dataset": pyhopper.choice(['MUTAG']),
-            "model_name": pyhopper.choice(['GCN_k_m']),
-            "embedding_size": pyhopper.choice([1]),
-            "epochs":pyhopper.choice([10]),
-            "patience":pyhopper.choice([20])
+            "distance": pyhopper.choice([args.distance]),
+            "nhoms": pyhopper.choice([args.nhoms]),
+            "hom_types": pyhopper.choice([args.hom_types]),
+            "dataset": pyhopper.choice([args.dataset]),
+            "model_name": pyhopper.choice([args.model_name]),
+            "embedding_size": pyhopper.choice([args.nhoms]),
+            "epochs":pyhopper.choice([args.epochs]),
+            "patience":pyhopper.choice([args.patience])
         }
     )
 
