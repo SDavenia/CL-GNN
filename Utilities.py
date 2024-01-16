@@ -161,7 +161,7 @@ class PairData(Data):
         return super().__inc__(key, value, *args, **kwargs)
 
 
-def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts'):
+def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts', scale_y=False):
     """
     Input:
         - path to .homson file as the output of homcount.
@@ -227,15 +227,24 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
     val_dataset = dataset[int(0.6*len(dataset) + 1):int(0.8*len(dataset) + 1)]
     test_dataset = dataset[int(0.8*len(dataset) + 1):]
 
+    max_train_dist=0
     train_data_list = []
     for ind1, graph1 in enumerate(train_dataset):
         for ind2, graph2 in enumerate(train_dataset[ind1+1:]):
             ind2 += (ind1 + 1)
             id1 = train_dataset[ind1].id.item()
             id2 = train_dataset[ind2].id.item()
+            entry_dist = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))
             train_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
+                                distance = entry_dist).to(device)) 
+            if entry_dist > max_train_dist:
+                max_train_dist = entry_dist
+
+    # Rescale the distances by dividing by the maximum distance in the training set.
+    if scale_y:
+        for pair in train_data_list:
+            pair.distance = pair.distance / max_train_dist
 
     val_data_list = []
     for ind1, graph1 in enumerate(val_dataset):
@@ -247,6 +256,12 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
                                 distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
 
+    # Rescale the distances by dividing by the maximum distance in the training set.
+    if scale_y:
+        for pair in val_data_list:
+            pair.distance = pair.distance / max_train_dist
+
+    
     test_data_list = []
     for ind1, graph1 in enumerate(test_dataset):
         for ind2, graph2 in enumerate(test_dataset[ind1+1:]):
@@ -256,6 +271,11 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
                                 distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
+    
+    # Rescale the distances by dividing by the maximum distance in the training set.
+    if scale_y:
+        for pair in test_data_list:
+            pair.distance = pair.distance / max_train_dist
 
     train_loader = DataLoader(train_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=True)
     val_loader = DataLoader(val_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
