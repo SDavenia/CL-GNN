@@ -86,7 +86,7 @@ def main():
 
     # Prepare dataloaders, where each element of the batch contains a pair of graphs and the specified distance obtained with homomorphism counts.
     torch.manual_seed(args.seed)
-    train_loader, val_loader, test_loader = prepare_dataloader_distance_scale(hom_counts_path, dataset, batch_size=args.batch_size, dist=args.distance, device = device, scaling = args.hom_types)
+    train_loader, val_loader, test_loader = prepare_dataloader_distance_scale(hom_counts_path, dataset, batch_size=args.batch_size, dist=args.distance, device = device, scaling = args.hom_types, scale_y=True)
 
     # The name of the model has form <dataset>_<nhoms>_<model_name>_k_m_(RELU)_(MLP)_<distance>_<hom_types>_<hidden_size>_<embedding_size>_<dropout>_<lr>_<batch_size>
     # The name of the model has form <dataset>_<nhoms>_<model_name>_<distance>_<hom_types>_<hidden_size>_<embedding_size>
@@ -96,7 +96,7 @@ def main():
     if args.mlp_distance:
         model_details += '_mlp'
 
-    name = args.dataset + "_" + str(args.nhoms) + "_" + args.model_name + model_details + "_" + args.distance + "_" + args.hom_types + "_" + str(args.hidden_size) + "_" + str(args.embedding_size) + str(args.dropout) + str(args.lr) + str(args.batch_size)
+    name = args.dataset + "_" + str(args.nhoms) + "_" + args.model_name + model_details + "_" + args.distance + "_" + args.hom_types + "_" + str(args.hidden_size) + "_" + str(args.embedding_size) + "_" + str(args.dropout) + "_" + str(args.lr) + "_" + str(args.batch_size)
     if args.model_name == 'GCN3':
         model = GCN3(input_features=dataset.num_node_features, 
                     hidden_channels=args.hidden_size, 

@@ -4,6 +4,7 @@ import numpy as np
 import pyhopper
 from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
+import time
 
 import argparse
 import torch
@@ -15,9 +16,74 @@ from Utilities import score
 from Utilities import plot_matrix_runs, plot_results, save_plot_losses
 from Utilities import Add_ID_Count_Neighbours, PairData, prepare_dataloader_distance_scale
 
-from training import training_loop
+from training import train, evaluate, epoch_time
 
 from models import GCN3, GCN3_MLP, GCN_k_m
+
+def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=1, patience=-1, return_losses=False):
+    """
+    Performs training for the specified number of epochs.
+    Then returns training and validation losses if required
+    Implemented parameter patience to control automatic early stopping. If -1 it is same as epoch number so not on.
+    """
+    # print(f"Entering training for {epoch_number} epochs")
+    N_EPOCHS = epoch_number
+
+    best_valid_loss = float("inf")
+    train_losses = []
+    validation_losses = []
+    best_epoch = 0
+
+    if patience == -1:
+        patience = epoch_number
+
+    no_improvement_count = 0
+    initial_time = time.time() # To stop earlier if it's taking too long
+    start_time = time.time()
+    for epoch in range(N_EPOCHS):
+        train_loss = train(model, train_iterator, optimizer, criterion)
+        valid_loss = evaluate(model, valid_iterator, criterion)
+
+        train_losses.append(train_loss)
+        validation_losses.append(valid_loss)
+
+        # Save model with best validation loss
+        if valid_loss < best_valid_loss:
+            best_epoch = epoch
+            best_valid_loss = valid_loss
+            model.save() # Save model in models folder
+            no_improvement_count = 0
+        else:
+            no_improvement_count += 1
+
+        if (epoch+1) % 10 == 0:
+            end_time = time.time()
+            epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+            
+            #print(f"Epoch: {epoch+1:02} | Time for 10 epochs: {epoch_mins}m {epoch_secs}s")
+            #print(
+            #    f"\tTrain Loss: {train_loss:.3f}"
+            #)
+            #print(
+            #    f"\t Val. Loss: {valid_loss:.3f}"
+            #)
+            start_time = time.time()
+        # Stop training with current hyper-parameters if it is taking longer than 40 minutes.
+        if time.time() - initial_time > 60*40:
+            print(f"Interrupting training at epoch {epoch}, taking longer than 40 minutes")
+            break
+
+        if no_improvement_count >= patience:
+            print(f"Early stopping triggered at epoch {epoch+1}")
+            if return_losses == True:
+                print(f"Best epoch was {best_epoch}")
+                return train_losses, validation_losses
+            break
+
+    if return_losses == True:
+        # print(f"Best epoch was {best_epoch}")
+        return train_losses, validation_losses
+
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser()
@@ -38,13 +104,14 @@ def parse_command_line_arguments():
                             help='Specify whether to use with homomorphism counts or counts densities')
     
     # Specify training parameters
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs for training')
-    parser.add_argument('--patience', type=int, default=-1, help='Patience for automatic early stopping to occur. If -1 no early stopping.')    
+    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs for training')
+    parser.add_argument('--patience', type=int, default=20, help='Patience for automatic early stopping to occur. If -1 no early stopping.')    
     return parser.parse_args()
 
 
 
 def train_GCN_k_m(params, for_testing=False):
+    start_time = time.time()
     #print(f"Trying out one")
     #print(f"Number of GCN_layers: {params['n_conv_layers']}")
     #print(f"Number of Linear layers: {params['n_linear_layers']}")
@@ -59,7 +126,7 @@ def train_GCN_k_m(params, for_testing=False):
 
     # Prepare dataloaders, where each element of the batch contains a pair of graphs and the specified distance obtained with homomorphism counts.
     torch.manual_seed(1231)
-    train_loader, val_loader, test_loader = prepare_dataloader_distance_scale(hom_counts_path, dataset, batch_size=params['batch_size'], dist=params['distance'], device = device, scaling = params['hom_types'])
+    train_loader, val_loader, test_loader = prepare_dataloader_distance_scale(hom_counts_path, dataset, batch_size=params['batch_size'], dist=params['distance'], device = device, scaling = params['hom_types'], scale_y=True)
 
     model_details = ''
     if params['apply_relu_conv']:
@@ -144,17 +211,18 @@ if __name__ == "__main__":
     print(f"Successfully loaded dataset")
     search = pyhopper.Search(
         {   
-            # Training hyper-parameters
-            "lr": pyhopper.float(0.5, 0.05, precision=1, log=True),
-            "batch_size": pyhopper.int(32, 128, power_of=2),
-
             # Model hyper-parameter
-            "hidden_size": pyhopper.int(16, 128, power_of=2),
+            "hidden_size": pyhopper.int(16, 64, power_of=2),
             "n_conv_layers": pyhopper.int(1, 3),
             "n_linear_layers": pyhopper.int(0, 2),
-            "dropout": pyhopper.choice([0, 0.2, 0.4, 0.6]),
+            "dropout": pyhopper.choice([0, 0.2, 0.5]),
             "apply_relu_conv": pyhopper.choice([True, False]),
             "mlp_distance": pyhopper.choice([True, False]),
+
+            # Training hyper-parameters
+            "lr": pyhopper.float(0.5, 0.05, precision=1, log=True),
+            "batch_size": pyhopper.int(32, 64, power_of=2),
+
 
             # Not actual hyper-parameters: just fixed and needed for the function.
             "distance": pyhopper.choice([args.distance]),
@@ -171,12 +239,13 @@ if __name__ == "__main__":
     best_params = search.run(
         train_GCN_k_m,
         'minimize',
-        runtime="30min",
+        runtime="1h 20min",
         quiet=True,
         n_jobs=-1,
     )
+    print(best_params)
 
-    train_GCN_k_m(best_params, for_testing=True)
+    # train_GCN_k_m(best_params, for_testing=True)
 
 
 

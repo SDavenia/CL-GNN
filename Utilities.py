@@ -161,7 +161,7 @@ class PairData(Data):
         return super().__inc__(key, value, *args, **kwargs)
 
 
-def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts', scale_y=False):
+def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts', scale_y=True):
     """
     Input:
         - path to .homson file as the output of homcount.
