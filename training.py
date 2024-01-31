@@ -48,10 +48,11 @@ def evaluate(model, iterator, criterion):
 
 
 
-def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=150, return_losses=False):
+def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=100, patience=-1, return_losses=False):
     """
     Performs training for the specified number of epochs.
     Then returns training and validation losses if required
+    Implemented parameter patience to control automatic early stopping. If -1 it is same as epoch number so not on.
     """
     N_EPOCHS = epoch_number
 
@@ -59,6 +60,11 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
     train_losses = []
     validation_losses = []
     best_epoch = 0
+
+    if patience == -1:
+        patience = epoch_number
+
+    no_improvement_count = 0
 
     start_time = time.time()
     for epoch in range(N_EPOCHS):
@@ -73,6 +79,10 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
             best_epoch = epoch
             best_valid_loss = valid_loss
             model.save() # Save model in models folder
+            no_improvement_count = 0
+        else:
+            no_improvement_count += 1
+
         if (epoch+1) % 10 == 0:
             end_time = time.time()
             epoch_mins, epoch_secs = epoch_time(start_time, end_time)
@@ -85,6 +95,14 @@ def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, e
                 f"\t Val. Loss: {valid_loss:.3f}"
             )
             start_time = time.time()
+        
+        if no_improvement_count >= patience:
+            print(f"Early stopping triggered at epoch {epoch+1}")
+            if return_losses == True:
+                print(f"Best epoch was {best_epoch}")
+                return train_losses, validation_losses
+            break
+
     if return_losses == True:
         print(f"Best epoch was {best_epoch}")
         return train_losses, validation_losses

@@ -41,7 +41,7 @@ Thumbs.db
 Basic/.DS_Store
 .vscode/
 __pycache__
-
+.ipynb_checkpoints/
 
 # Images and text and models #
 ##################
@@ -55,4 +55,5 @@ __pycache__
 PyG_tutorials
 trial.*
 attempts
-
+run_scripts
+run_scripts_after_tuning

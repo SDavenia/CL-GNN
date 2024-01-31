@@ -41,6 +41,7 @@ def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
     plt2.set_clim(vmin=min(matrix_run1.min(), matrix_run2.min()), vmax=max(matrix_run1.max(), matrix_run2.max()))
 
     plt.show()
+    plt.close()
 
 def plot_matrix_runs_different_scale(matrix_run1, matrix_run2, num_elements):
     """
@@ -66,15 +67,45 @@ def plot_matrix_runs_different_scale(matrix_run1, matrix_run2, num_elements):
     # Adjust layout to make room for colorbars
     plt.tight_layout()
     plt.show()
+    plt.close()
 
 
-def plot_results(y, predictions, subset = None):
+def save_plot_losses(train_losses, validation_losses, save_path):
+    # Save plot of train and validation loss, exclude the first one otherwise loss unreadable
+    save_img = save_path + '.png'
+    plot_losses(train_losses[1:], validation_losses[1:], save_path=save_img)
+
+    # Save train and validation losses
+    save_train_loss = save_path + 'train_loss.txt'
+    with open(save_train_loss, 'w') as file:
+        for loss in train_losses:
+            file.write(f'{loss}\n')
+
+    save_validation_loss = save_path + 'validation_loss.txt'
+    with open(save_validation_loss, 'w') as file:
+        for loss in validation_losses:
+            file.write(f'{loss}\n')
+
+def plot_losses(train_losses, validation_losses, save_path=None):
+    plt.plot(train_losses, label='train losses')
+    plt.plot(validation_losses, label='validation losses')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE loss')
+    plt.title('Line Plot of train and validation loss')
+    plt.legend()
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+    plt.close()
+
+def plot_results(y, predictions, subset = None, save_path=None):
     """
     Plot of predicted vs actual results.
     If subset is specified only subset observations at random will be plotted.
     """
-    y_array = y.numpy()
-    predictions_array = predictions.numpy()
+    y_array = y.cpu().numpy()
+    predictions_array = predictions.cpu().numpy()
 
     y_array = y_array
     predictions_array = predictions_array
@@ -94,25 +125,32 @@ def plot_results(y, predictions, subset = None):
     plt.title('Actual vs Predicted values')
     plt.legend()
 
-    # Show the plot
-    plt.show()
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+    plt.close()
 
 ########################### DataLoader functions ###########################
 class Add_ID_Count_Neighbours:
+    """
+    Adds a unique ID to each graph and initializes its node features to the number of neighbours
+    """
     def __init__(self):
         self.graph_index = 0
 
     def __call__(self, data):
         # Assign a unique ID (graph index) as an attribute to each graph
-        counts = data.edge_index[0].unique(return_counts=True)[1].reshape(-1, 1)
-        if len(counts) == data.x.shape[0]:
-            data.x = counts
-            data.id = torch.tensor([self.graph_index], dtype=torch.long)
-            self.graph_index += 1
-            return data
-        print(f"The input graph contains some unconnected node, this pre-transform can't work with it")
-        raise TypeError()
+        # If a node is disconnected from the other 
+        node_indices, node_neighbours = data.edge_index[0].unique(return_counts=True)
+        counts = torch.zeros(data.x.shape[0], dtype=torch.int64)
+        counts[node_indices] = node_neighbours
+        counts = counts.reshape(-1, 1)
 
+        data.x = counts
+        data.id = torch.tensor([self.graph_index], dtype=torch.long)
+        self.graph_index += 1
+        return data
 
 class PairData(Data):
     def __inc__(self, key, value, *args, **kwargs):
@@ -123,7 +161,7 @@ class PairData(Data):
         return super().__inc__(key, value, *args, **kwargs)
 
 
-def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts'):
+def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 32, dist = 'L1', scaling = 'counts', scale_y=True):
     """
     Input:
         - path to .homson file as the output of homcount.
@@ -160,8 +198,8 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             data['data'][i]['counts_densities'] = [data['data'][i]['counts'][j] / den[j] for j in range(p)]
         
         hom_counts = [element['counts_densities'] for element in data['data']]
-        assert all(entry <= 1 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
-        assert all(entry >= 0 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
+        #assert all(entry <= 1 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
+        #assert all(entry >= 0 for list_ in hom_counts for entry in list_), "Densities should be <= 1"
 
 
     # Compute the distance matrix
@@ -189,15 +227,24 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
     val_dataset = dataset[int(0.6*len(dataset) + 1):int(0.8*len(dataset) + 1)]
     test_dataset = dataset[int(0.8*len(dataset) + 1):]
 
+    max_train_dist=0
     train_data_list = []
     for ind1, graph1 in enumerate(train_dataset):
         for ind2, graph2 in enumerate(train_dataset[ind1+1:]):
             ind2 += (ind1 + 1)
             id1 = train_dataset[ind1].id.item()
             id2 = train_dataset[ind2].id.item()
+            entry_dist = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))
             train_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
-                                distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
+                                distance = entry_dist).to(device)) 
+            if entry_dist > max_train_dist:
+                max_train_dist = entry_dist
+
+    # Rescale the distances by dividing by the maximum distance in the training set.
+    if scale_y:
+        for pair in train_data_list:
+            pair.distance = pair.distance / max_train_dist
 
     val_data_list = []
     for ind1, graph1 in enumerate(val_dataset):
@@ -209,6 +256,12 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
                                 distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
 
+    # Rescale the distances by dividing by the maximum distance in the training set.
+    if scale_y:
+        for pair in val_data_list:
+            pair.distance = pair.distance / max_train_dist
+
+    
     test_data_list = []
     for ind1, graph1 in enumerate(test_dataset):
         for ind2, graph2 in enumerate(test_dataset[ind1+1:]):
@@ -218,6 +271,11 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
             test_data_list.append(PairData(x_1=graph1.x, edge_index_1=graph1.edge_index,
                                 x_2=graph2.x, edge_index_2=graph2.edge_index,
                                 distance = torch.from_numpy(np.asarray(dist_matrix[id1, id2]))).to(device)) 
+    
+    # Rescale the distances by dividing by the maximum distance in the training set.
+    if scale_y:
+        for pair in test_data_list:
+            pair.distance = pair.distance / max_train_dist
 
     train_loader = DataLoader(train_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=True)
     val_loader = DataLoader(val_data_list, batch_size=batch_size, follow_batch=['x_1', 'x_2'], shuffle=False)
@@ -228,16 +286,16 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
 
 
 ########################### Evaluation functions ###########################
-def score(model, loader):
+def score(model, loader, device = 'cpu'):
     """
     Given a (pre-trained) model and a dataloader, 
     It returns:
         - y: the true values of the regressor
         - predict: the predicted values according to the model
     """
-        
-    y = torch.Tensor()
-    predictions = torch.Tensor()
+     
+    y = torch.Tensor().to(device)
+    predictions = torch.Tensor().to(device)
 
     model.eval()
     with torch.no_grad():
