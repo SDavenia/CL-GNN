@@ -169,13 +169,13 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
         - device: cpu or cuda depending on whether cuda is available.
         - batch_size: batch size for the torch loaders.
         - dist: metric to use to compute the distance between two vectors.
-        - scaling: specifies whether it should use absolute counts, counts densities, or rescaled counts densities.
+        - scaling: specifies whether it should use absolute counts, counts densities.
     """
     # Compute the distance matrix
     if dist not in ['cosine', 'L1', 'L2']:
         raise ValueError("Invalid value for dist. Expected one of: cosine, L1, or L2.")
-    if scaling not in ['counts', 'counts_density', 'counts_density_rescaled']:
-        raise ValueError("Invalid value for scaling. Expected one of: counts, counts_density or counts_density_rescaled")
+    if scaling not in ['counts', 'counts_density']:
+        raise ValueError("Invalid value for scaling. Expected one of: counts, counts_density")
     
     # Read file
     with open(file_path) as f:
@@ -191,7 +191,7 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
         pattern_sizes = data['pattern_sizes']
         p = len(pattern_sizes)
 
-        # Compute the counts densitied
+        # Compute the counts densities
         for i in range(len(data['data'])):
             n_vertices = vertices[i]
             den = [n_vertices**pattern_sizes[j] for j in range(p)]
@@ -212,14 +212,9 @@ def prepare_dataloader_distance_scale(file_path, dataset, device, batch_size = 3
 
     dist_matrix = dist_matrix.astype('float32')
     
-    # Rescale dividing by the number of homomorphism counts extracted if necessary
-    if scaling == 'counts_density_rescaled' and dist != 'cosine':  # since for cosine it makes no sense to rescale since always in [0,2]
-        if dist == 'L1':
-            dist_matrix = dist_matrix / p
-        else:
-            dist_matrix = dist_matrix / np.sqrt(p)
-        assert all(entry <= 1  and entry >= 0 for row in dist_matrix for entry in row), f"Not all entries in dist_matrix are valid"
-
+    if scale_y:
+        dist_matrix = np.sqrt(dist_matrix)
+        
    
     # Split with 60, 20, 20 split
     dataset = dataset.shuffle()
