@@ -3,6 +3,7 @@ This file contains the necessary Utilities functions
 """
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
+from sklearn.linear_model import LinearRegression
 
 import torch
 from torch.nn import MSELoss
@@ -116,7 +117,7 @@ def plot_results(y, predictions, subset = None, save_path=None):
         predictions_array = predictions_array[random_ids]
 
     # Plot the actual vs predicted values
-    plt.scatter(y_array, predictions_array, label='Actual vs Predicted')
+    plt.scatter(y_array, predictions_array, label='Actual vs Predicted', s=0.5)
     plt.plot([min(y_array), max(y_array)], [min(y_array), max(y_array)], '--', color='red', label='Perfect Prediction')
 
     # Customize the plot
