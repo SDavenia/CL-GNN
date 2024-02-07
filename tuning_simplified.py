@@ -68,8 +68,8 @@ def training_loop_tuning(model, train_iterator, optimizer, criterion, valid_iter
             #    f"\t Val. Loss: {valid_loss:.3f}"
             #)
             start_time = time.time()
-        # Stop training with current hyper-parameters if it is taking longer than 30 minutes.
-        if time.time() - initial_time > 60*30:
+        # Stop training with current hyper-parameters if it is taking longer than 40 minutes.
+        if time.time() - initial_time > 60*40:
             print(f"Interrupting training at epoch {epoch}, taking longer than 40 minutes")
             break
 
@@ -153,9 +153,9 @@ def train_GCN_k_m(params, for_testing=False):
 if __name__ == "__main__":
     args = parse_command_line_arguments()
     if args.dataset == 'MUTAG':
-        dataset = TUDataset(root='/tmp/MUTAG_transformed', name='MUTAG', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
+        dataset = TUDataset(root='MUTAG_transformed', name='MUTAG', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
     if args.dataset == 'ENZYMES':
-        dataset = TUDataset(root='/tmp/ENZYMES_transformed', name='ENZYMES', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
+        dataset = TUDataset(root='ENZYMES_transformed', name='ENZYMES', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
     print(f"Successfully loaded dataset")
     search = pyhopper.Search(
         {   
