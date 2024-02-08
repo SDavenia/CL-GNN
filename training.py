@@ -20,13 +20,18 @@ def train(model, iterator, optimizer, criterion):
 
     for batch in iterator:
         optimizer.zero_grad()
-        predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
-                            batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
-
-        loss = criterion(predictions, batch.distance)
+        if batch.x_3 is None:
+            predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+                                batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
+            loss = criterion(predictions, batch.distance)
+        else:
+            a, p, n = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+                                batch.x_2.float(), batch.edge_index_2, batch.x_2_batch,
+                                batch.x_3.float(), batch.edge_index_3, batch.x_3_batch)
+            loss = criterion(a, p, n, batch.margin)
+              
         loss.backward()
         optimizer.step()
-
         epoch_loss += loss.item()
     return (epoch_loss / len(iterator))
 
@@ -38,9 +43,15 @@ def evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for batch in iterator:
-            predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+            if batch.x_3 is None:
+                predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
                                 batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
-            loss = criterion(predictions, batch.distance)
+                loss = criterion(predictions, batch.distance)
+            else:
+                a, p, n = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+                                batch.x_2.float(), batch.edge_index_2, batch.x_2_batch,
+                                batch.x_3.float(), batch.edge_index_3, batch.x_3_batch)
+                loss = criterion(a, p, n, batch.margin)
 
             epoch_loss += loss.item()
 
