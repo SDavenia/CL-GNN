@@ -29,7 +29,7 @@ def parse_command_line_arguments():
     parser = argparse.ArgumentParser()
 
     # Specify the model, dataset and vector of homomorphisms.
-    parser.add_argument('--model_name', type=str, required=True, choices=['GCN_k_m'],
+    parser.add_argument('--model_name', type=str, default=['GCN_k_m'], choices=['GCN_k_m'],
                             help='Name of the model (choose from GCN_k_m)')
     parser.add_argument('--dataset', type=str, required=True, choices=['MUTAG', 'ENZYMES'],
                             help='Name of the dataset (choose from MUTAG, ENZYMES)')
