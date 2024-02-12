@@ -8,6 +8,8 @@ To obtain a distance between graphs these are represented through their vectors 
 
 The base layer consists of $k$ Graph Convolutional layers (GCN), as proposed by Kipf et al. (2017) [2], followed by $m$ linear layers. Additionally, non-linear and batch normalisation layers are included, while global mean pooling is used to move from a node-level to a graph-level representation. The network base layer is shown in the image below, in this case when working with two input graphs:
 
+![alt text](https://github.com/SDavenia/CL-GNN/blob/main/images/architecture.png)
+
 
 To train the network, standard contrastive learning ideas are exploited and adapted to try and preserve distance. To be more specific, the network can be trained using either one of two losses:
 - Contrastive loss idea (CL): the network takes as input a pair of graphs which are fed through the same layers to obtain graph embeddings. Afterwards, the distance between those is computed, and the network is penalised if this distance is different from the one computed on the vector of homomorphism counts or densities of the two graphs.
