@@ -10,18 +10,19 @@ from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
 
 
-from Utilities import score
+from Utilities import score, extract_k_closest_embedding, extract_k_closest_homdist, compute_jaccard
 from Utilities import plot_matrix_runs, plot_results, save_plot_losses
-from Utilities import Add_ID_Count_Neighbours, PairData, prepare_dataloader_distance_scale
-
+from Utilities import Add_ID_Count_Neighbours, PairData, prepare_dataloader_contrastive
+from Utilities import  TripletData, CustomTripletMarginLoss, compute_distance_matrix, prepare_dataloader_triplet
 from training import training_loop
 
 from models import GCN_k_m
 
 """
 Example call of this script:
-python main.py --model_name GCN_k_m --dataset MUTAG --nhoms 50 --hidden_size 32 --embedding_size 50 --n_conv_layers 3 --n_lin_layers 0  --distance L1 --hom_types counts --epochs 50 --batch_size 32 --patience 10 --lr 0.01
+python main.py --model_name GCN_k_m --loss contrastive --n_triplets 10 --dataset MUTAG --nhoms 50 --hidden_size 32 --embedding_size 50 --n_conv_layers 3 --n_lin_layers 0  --distance L1 --hom_types counts --epochs 50 --batch_size 32 --patience 10 --lr 0.01
 """
+
 
 
 def parse_command_line_arguments():
@@ -34,17 +35,16 @@ def parse_command_line_arguments():
                             help='Name of the dataset (choose from MUTAG, ENZYMES)')
     parser.add_argument('--nhoms', type=int, required=True, help='Number of homomorphisms to compute the distance')
 
+    # Specify whether triplets or pairs should be used for training.
+    parser.add_argument('--loss', type=str, default='contrastive', choices = ['contrastive', 'triplet'])
+
     # Specify parameters of the architecture, i.e. hidden size, embedding size and dropout probability.
     parser.add_argument('--hidden_size', type=int, default=64, help='Dimension of the hidden model size')
     parser.add_argument('--embedding_size', type=int, default=50, help='Dimension of the embedding')
-    # parser.add_argument('--dropout', type=float, default=0.2, help='Dropout probability')
     parser.add_argument('--n_conv_layers', type=int, default=3, help='Number of GCN layers in the model')
     parser.add_argument('--n_lin_layers', type=int, default=0, help='Number of linear layers in the model (after GCN layers)')
-    # parser.add_argument('--apply_relu_conv', type=bool, default=False, help='If True, apply relu after each convolutional layer')
-    # parser.add_argument('--mlp_distance', type=bool, default=False, help='If True, distance is computed using an MLP on the difference between embeddings')
-
+    
     # Specify parameters controlling the distance to be computed between the homcount vectors
-    # (If models not ending with MLP are used, the same distance is also employed for the embeddings).  
     parser.add_argument('--distance', type=str, default='L1', choices=['L1', 'L2', 'cosine'],
                             help='Specify distance to use for embeddings (choose from L1, L2, cosine)')
     parser.add_argument('--hom_types', type=str, default='counts', choices=['counts', 'counts_density'],
@@ -56,6 +56,7 @@ def parse_command_line_arguments():
     parser.add_argument('--patience', type=int, default=10, help='Patience for automatic early stopping to occur. If -1 no early stopping.')
     parser.add_argument('--seed', type=int, default=20224, help='Seed for random generation')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate for Adam optimizer')
+    parser.add_argument('--n_triplets', type=int, default=10, help='Number of closest and farthest away vectors for building triplets')
     
     return parser.parse_args()
 
@@ -65,6 +66,7 @@ def main():
 
     # Print summary of the model choices.
     print(f'Model Name: {args.model_name}')
+    print(f'Loss: {args.loss}')
     print(f'Hidden Size: {args.hidden_size}')
     print(f'Output Embedding Size: {args.embedding_size}')
     print(f'Dataset: {args.dataset}')
@@ -76,7 +78,7 @@ def main():
     # Load dataset and initialize features to be the number of neighbours.
     if args.dataset == 'MUTAG':
         dataset = TUDataset(root='/tmp/MUTAG_transformed', name='MUTAG', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
-    if args.dataset == 'ENZYMES':
+    elif args.dataset == 'ENZYMES':
         dataset = TUDataset(root='/tmp/ENZYMES_transformed', name='ENZYMES', pre_transform=Add_ID_Count_Neighbours(), use_node_attr=True)
 
     # Read homomorphism counts path (should be of the form <dataset>_<number of homomorphisms>.homson)
@@ -87,12 +89,17 @@ def main():
     # Prepare dataloaders, where each element of the batch contains a pair of graphs and the specified distance obtained with homomorphism counts/density.
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
-    train_loader, val_loader, test_loader = prepare_dataloader_distance_scale(hom_counts_path, dataset, batch_size=args.batch_size, dist=args.distance, device = device, scaling = args.hom_types, scale_y=True)
 
-    # The name of the model is <dataset>_<nhoms>_<model_name>_<distance>_<hom_types>_<hidden_size>_<embedding_size>_<lr>_<batch_size>
+    if args.loss == 'contrastive':
+        dist_matrix = compute_distance_matrix(hom_counts_path, distance=args.distance, scaling = args.hom_types, scale_y=True)
+        train_loader, val_loader, test_loader, test_dataset = prepare_dataloader_contrastive(hom_counts_path, dataset, batch_size=args.batch_size, dist=args.distance, device = device, scaling = args.hom_types, scale_y=True)
+    elif args.loss == 'triplet':
+        dist_matrix = compute_distance_matrix(hom_counts_path, distance=args.distance, scaling = args.hom_types, scale_y=True)
+        train_loader, val_loader, test_loader, test_dataset = prepare_dataloader_triplet(dataset, dist_matrix, batch_size=args.batch_size, k=args.n_triplets, device=device)
 
+    # The name of the model is <dataset>_<loss>_<nhoms>_<model_name>_<distance>_<hom_types>_<hidden_size>_<embedding_size>_<lr>_<batch_size>
     if args.model_name == 'GCN_k_m':
-        name = args.dataset + "_" + str(args.nhoms) + "_GCN_" + str(args.n_conv_layers) + "_" + str(args.n_lin_layers) + "_" + args.distance + "_" + args.hom_types + "_" + str(args.hidden_size) + "_" + str(args.embedding_size) + "_"  + str(args.lr) + "_" + str(args.batch_size)
+        name = args.dataset + "_" + args.loss + "_" +  str(args.nhoms) + "_GCN_" + str(args.n_conv_layers) + "_" + str(args.n_lin_layers) + "_" + args.distance + "_" + args.hom_types + "_" + str(args.hidden_size) + "_" + str(args.embedding_size) + "_"  + str(args.lr) + "_" + str(args.batch_size)
         model = GCN_k_m(input_features=dataset.num_node_features, 
                         hidden_channels=args.hidden_size, 
                         output_embeddings=args.embedding_size, 
@@ -103,7 +110,15 @@ def main():
 
     # Prepare optimizer and criterion to be used during training.
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    criterion = torch.nn.MSELoss().to(device)
+    if args.loss == 'contrastive':
+        criterion = torch.nn.MSELoss().to(device)
+    else:
+        if args.distance == 'L1':
+            criterion = CustomTripletMarginLoss(p=1).to(device)
+        elif args.distance == 'L2':
+            criterion = CustomTripletMarginLoss(p=2).to(device)
+        elif args.distance == 'cosine':
+            raise NotImplementedError("Cosine distance not implemented for triplet loss.")
     
     # Train the model on the training set, saving the best model on the validation set and save some plot of the losses and of the actual vs predicted values.
     # print(f"Training:")
@@ -129,6 +144,13 @@ def main():
     y, predictions = score(model, test_loader, device)
     predictions_path = 'results/actual_vs_predicted/' + name + '.png'
     plot_results(y, predictions, save_path = predictions_path)
+
+    # Obtain Jaccard similarity for nearest neighbours and print to output.
+    closest_graphs_original = extract_k_closest_homdist(test_dataset, dist_matrix, k = args.n_triplets)
+    closest_graphs_embeddings = extract_k_closest_embedding(model, test_loader, k = args.n_triplets)
+    jaccard = compute_jaccard(closest_graphs_original, closest_graphs_embeddings)
+    print(f"Jaccard similarity between sets of NNs: {jaccard}")
+
 
 if __name__ == "__main__":
     main()

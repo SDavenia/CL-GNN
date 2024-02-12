@@ -8,13 +8,12 @@ from torch_geometric.nn.norm import BatchNorm
 
 class GCN_k_m(torch.nn.Module):
     """
-    Takes as input a pair of graphs which are both fed through k graph convolutional layers and m linear layers (with k >= 1 and m >= 0).
-    conv1 -> relu -> ... -> convk -> meanpool -> compute dist(x1, x2)
-    If a number of linear layers m >= 1 is specified:
-    conv1 -> ...         -> convk -> meanpool -> linear1 -> relu -> ... -> linearm -> compute dist(x1, x2)
-    
-    If mlp_dist is set to True:
-    The distance between the two embedding vectors is obtained by applying a linear transformation on the difference between the two.
+    The base of the network consists of k graph convolutional layers followed by m linear layers (with k >= 1 and m >= 0) to obtain graph embeddings.
+    conv1 -> ...         -> convk -> meanpool -> linear1 -> relu -> ... -> linearm -> embedding 
+
+    For training the network considers two approaches:
+    - contrastive approach: Given two graphs, the network computes the distance between their embeddings and penalizes according to some pre-specified distance.
+    - triplet approach: Given three graphs (a, p, n) the network computed the distance between the embeddings of a and p, and the distance between the embeddings of a and n. It then penalizes if this difference is smaller than some pre-specified one. 
     """
     def __init__(self, input_features, hidden_channels, output_embeddings, n_conv_layers, n_linear_layers, name, dist = 'L1'):
         super(GCN_k_m, self).__init__()
@@ -75,33 +74,28 @@ class GCN_k_m(torch.nn.Module):
         elif self.dist == 'cosine':
             self.pdist = CosineSimilarity()
 
-    def forward(self, x1, edge_index1, batch1, x2, edge_index2, batch2): # Need a way to extract these from dataloader
-
+    def forward_base_network(self, x, edge_index, batch):  # This is the forward pass for the base network. 
         # 1. Obtain node embeddings for graph 1 and 2
         for i, gcn_layer in enumerate(self.GCN_layers):
-            x1 = gcn_layer(x1, edge_index1)
-            # x1 = self.conv_dropout(x1)
-            x2 = gcn_layer(x2, edge_index2)
-            # x2 = self.conv_dropout(x2)
-
+            x = gcn_layer(x, edge_index)
+    
             if i != (self.n_conv_layers-1): # Do not apply batch normalization or ReLu after the last convolutional layer.
-                x1 = self.relu(x1)
-                x2 = self.relu(x2)
-                x1 = self.BN_layers[i](x1) 
-                x2 = self.BN_layers[i](x2)
+                x = self.relu(x)
+                x = self.BN_layers[i](x) 
         
         # 2. Readout layer followed by Linear layers.
-        x1 = global_mean_pool(x1, batch1)
-        x1 = torch.nn.functional.dropout(x1, p=0.5)
-        x2 = global_mean_pool(x2, batch2)
-        x2 = torch.nn.functional.dropout(x2, p=0.5)
+        x = global_mean_pool(x, batch)
+        x = torch.nn.functional.dropout(x, p=0.5)
 
         for i, layer in enumerate(self.Linear_layers):
-            x1 = layer(x1)
-            x2 = layer(x2)
+            x = layer(x)
             if i != self.n_linear_layers: # Do not apply ReLu after the final linear layer
-                x1 = self.relu(x1)
-                x2 = self.relu(x2)
+                x = self.relu(x)
+        return x
+
+    def forward_contrastive_loss(self, x1, edge_index1, batch1, x2, edge_index2, batch2): # Forward pass when two inputs are given to the network
+        x1 = self.forward_base_network(x1, edge_index1, batch1)
+        x2 = self.forward_base_network(x2, edge_index2, batch2)
 
         # Compute the corresponding distance between the embeddings.
         if self.dist == 'cosine':
@@ -109,7 +103,22 @@ class GCN_k_m(torch.nn.Module):
         else:
             vdist = self.pdist(x1, x2)
         return vdist
-    
+
+    def forward_triplet_loss(self, x1, edge_index1, batch1, x2, edge_index2, batch2, x3, edge_index3, batch3): # Forward pass when three inputs are given to the network
+        x1 = self.forward_base_network(x1, edge_index1, batch1)
+        x2 = self.forward_base_network(x2, edge_index2, batch2)
+        x3 = self.forward_base_network(x3, edge_index3, batch3)
+
+        return x1, x2, x3
+
+    def forward(self, x1, edge_index1, batch1, x2, edge_index2, batch2, x3=None, edge_index3=None, batch3=None):
+        if x3 is None:
+            # Call Contrastive loss forward.
+            return self.forward_contrastive_loss(x1, edge_index1, batch1, x2, edge_index2, batch2)  
+        else:
+            # Call triplet loss forward.
+            return self.forward_triplet_loss(x1, edge_index1, batch1, x2, edge_index2, batch2, x3, edge_index3, batch3)
+
     def save(self):
         """
         Saves the model state dictionary in models folder
