@@ -8,13 +8,12 @@ from torch_geometric.nn.norm import BatchNorm
 
 class GCN_k_m(torch.nn.Module):
     """
-    Takes as input a pair of graphs which are both fed through k graph convolutional layers and m linear layers (with k >= 1 and m >= 0).
-    conv1 -> relu -> ... -> convk -> meanpool -> compute dist(x1, x2)
-    If a number of linear layers m >= 1 is specified:
-    conv1 -> ...         -> convk -> meanpool -> linear1 -> relu -> ... -> linearm -> compute dist(x1, x2)
-    
-    If mlp_dist is set to True:
-    The distance between the two embedding vectors is obtained by applying a linear transformation on the difference between the two.
+    The base of the network consists of k graph convolutional layers followed by m linear layers (with k >= 1 and m >= 0) to obtain graph embeddings.
+    conv1 -> ...         -> convk -> meanpool -> linear1 -> relu -> ... -> linearm -> embedding 
+
+    For training the network considers two approaches:
+    - contrastive approach: Given two graphs, the network computes the distance between their embeddings and penalizes according to some pre-specified distance.
+    - triplet approach: Given three graphs (a, p, n) the network computed the distance between the embeddings of a and p, and the distance between the embeddings of a and n. It then penalizes if this difference is smaller than some pre-specified one. 
     """
     def __init__(self, input_features, hidden_channels, output_embeddings, n_conv_layers, n_linear_layers, name, dist = 'L1'):
         super(GCN_k_m, self).__init__()
@@ -92,6 +91,7 @@ class GCN_k_m(torch.nn.Module):
             x = layer(x)
             if i != self.n_linear_layers: # Do not apply ReLu after the final linear layer
                 x = self.relu(x)
+        return x
 
     def forward_contrastive_loss(self, x1, edge_index1, batch1, x2, edge_index2, batch2): # Forward pass when two inputs are given to the network
         x1 = self.forward_base_network(x1, edge_index1, batch1)
@@ -109,7 +109,7 @@ class GCN_k_m(torch.nn.Module):
         x2 = self.forward_base_network(x2, edge_index2, batch2)
         x3 = self.forward_base_network(x3, edge_index3, batch3)
 
-        pass # Da capire come ritornare con la batch 
+        return x1, x2, x3
 
     def forward(self, x1, edge_index1, batch1, x2, edge_index2, batch2, x3=None, edge_index3=None, batch3=None):
         if x3 is None:
@@ -119,8 +119,6 @@ class GCN_k_m(torch.nn.Module):
             # Call triplet loss forward.
             return self.forward_triplet_loss(x1, edge_index1, batch1, x2, edge_index2, batch2, x3, edge_index3, batch3)
 
-
-    
     def save(self):
         """
         Saves the model state dictionary in models folder

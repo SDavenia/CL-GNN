@@ -12,7 +12,6 @@ def epoch_time(start_time, end_time):
     return elapsed_mins, elapsed_secs
 
 
-
 def train(model, iterator, optimizer, criterion):
 
     epoch_loss = 0
@@ -20,15 +19,17 @@ def train(model, iterator, optimizer, criterion):
 
     for batch in iterator:
         optimizer.zero_grad()
-        if batch.x_3 is None:
+        try:
+            # This will execute if the batch has x_3, i.e. we are using triplet loss approach
+            a, p, n = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+                            batch.x_2.float(), batch.edge_index_2, batch.x_2_batch,
+                            batch.x_3.float(), batch.edge_index_3, batch.x_3_batch)
+            loss = criterion(a, p, n, batch.margin)
+        except AttributeError:
+            # This will execute if the batch does not containg x_3, i.e. we are using the contrastive approach.
             predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
                                 batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
             loss = criterion(predictions, batch.distance)
-        else:
-            a, p, n = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
-                                batch.x_2.float(), batch.edge_index_2, batch.x_2_batch,
-                                batch.x_3.float(), batch.edge_index_3, batch.x_3_batch)
-            loss = criterion(a, p, n, batch.margin)
               
         loss.backward()
         optimizer.step()
@@ -43,15 +44,17 @@ def evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for batch in iterator:
-            if batch.x_3 is None:
-                predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
-                                batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
-                loss = criterion(predictions, batch.distance)
-            else:
+            try:
+                # This will execute if the batch has x_3, i.e. we are using triplet loss approach
                 a, p, n = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
                                 batch.x_2.float(), batch.edge_index_2, batch.x_2_batch,
                                 batch.x_3.float(), batch.edge_index_3, batch.x_3_batch)
                 loss = criterion(a, p, n, batch.margin)
+            except AttributeError:
+                # This will execute if the batch does not containg x_3, i.e. we are using the contrastive approach.
+                predictions = model(batch.x_1.float(), batch.edge_index_1, batch.x_1_batch, 
+                                    batch.x_2.float(), batch.edge_index_2, batch.x_2_batch)
+                loss = criterion(predictions, batch.distance)
 
             epoch_loss += loss.item()
 
