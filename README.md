@@ -4,7 +4,7 @@ Project for the "Machine Learning Algorithms and Applications" course at TU Wien
 
 ### General Idea
 The aim of this project is to identify whether distance preserving embeddings for graphs can be obtained. To investigate this, a Siamese Network architecture is used, and Graph Neural Networks (GNNs) are used to handle graph data. This approach could be exploited as a self-supervised step to perform on a GNN before using it for some other downstream task.\
-To obtain a distance between graphs these are represented through their vectors of expectation-complete homomorphism counts, as proposed in Welke et al. (2023) [1].
+To obtain a distance between graphs these are represented through their vectors of expectation-complete homomorphism counts, as proposed in Welke et al. (2023) [1] and the associated code that can be found at [pwelke/homcount](https://github.com/pwelke/homcount) is used to obtain the vectors of homomorphism counts.
 
 The base layer consists of $k$ Graph Convolutional layers (GCN), as proposed by Kipf et al. (2017) [2], followed by $m$ linear layers. Additionally, non-linear and batch normalisation layers are included, while global mean pooling is used to move from a node-level to a graph-level representation. The network base layer is shown in the image below, in this case when working with two input graphs:
 
