@@ -145,12 +145,12 @@ def main():
     predictions_path = 'results/actual_vs_predicted/' + name + '.png'
     plot_results(y, predictions, save_path = predictions_path)
 
-    # Obtain Jaccard similarity for nearest neighbours and print to output.
-    closest_graphs_original = extract_k_closest_homdist(test_dataset, dist_matrix, k = args.n_triplets)
-    closest_graphs_embeddings = extract_k_closest_embedding(model, test_loader, k = args.n_triplets)
-    jaccard = compute_jaccard(closest_graphs_original, closest_graphs_embeddings)
-    print(f"Jaccard similarity between sets of NNs: {jaccard}")
-
+    # Obtain Jaccard similarity for variable number of nearest neighbours and print to output.
+    for k in [2, 5, 10, 15]:
+        closest_graphs_original = extract_k_closest_homdist(test_dataset, dist_matrix, k = k)
+        closest_graphs_embeddings = extract_k_closest_embedding(model, test_loader, k = k)
+        jaccard = compute_jaccard(closest_graphs_original, closest_graphs_embeddings)
+        print(f"Jaccard similarity when considering {k} nearest neighbours: {jaccard}")
 
 if __name__ == "__main__":
     main()
