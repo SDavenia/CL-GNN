@@ -33,13 +33,20 @@ where:
 > Note that additional parameters to control training are also available (learning rate, batch size, ...). Check file `main.py` for further information.
 
 ### Structure of the repository
+- `main.py`: contains the code to train-validate the model with the specified options as described above.
 - `Utilities.py`: contains utility functions for plotting and preparing dataloaders.
 - `models.py`: contains the implementation of the architecture described above.
 - `training.py`: contains the functions used for training and validation.
 - `exploration_MUTAG.ipynb`, `exploration_ENZYMES.ipynb`: contain an exploratory analysis of the distances obtained using homomorphism counts.
+- `analyze_patterns`: contains the analysis of the patterns which caused issues when computing homomorphism densities.
 - `data`: contains the json format files storing homomorphism counts in `data/homomorphism_counts` and patterns files which were analyzed.
-- `results`: contains the plots of actual vs predicted distances in `results/actual_vs_predicted` and the losses obtained during the training procedure in `results/train_val_loss`.
+- `results`: contains the results for the analysis.
+  - `results/actual_vs_predicted`: contains the actual-vs-predicted plots.
+  - `results/train_val_loss`: contains the losses obtained during training on both training and validation split.
+  - `results/hyperparameter_tuning`: contains the results of the hyper-parameter tuning performed when working with CL approach.
+  - `results/triplet_jaccard`: contains the average Jaccard similarities obtained when working with the TL approach.
 
+ 
 
 ### References
 [1] Welke, P., \& Thiessen, M., \& Jogl, F., \& Gärtner, T. (2023). Expectation-complete graph representations with homomorphisms. In *International Conference on Machine Learning*.\
