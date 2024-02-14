@@ -99,7 +99,7 @@ def main():
 
     # The name of the model is <dataset>_<loss>_<nhoms>_<model_name>_<distance>_<hom_types>_<hidden_size>_<embedding_size>_<lr>_<batch_size>
     if args.model_name == 'GCN_k_m':
-        name = args.dataset + "_" + args.loss + "_" +  str(args.nhoms) + "_GCN_" + str(args.n_conv_layers) + "_" + str(args.n_lin_layers) + "_" + args.distance + "_" + args.hom_types + "_" + str(args.hidden_size) + "_" + str(args.embedding_size) + "_"  + str(args.lr) + "_" + str(args.batch_size)
+        name = args.dataset + "_" + args.loss + "_" + str(args.n_triplets) +  str(args.nhoms) + "_GCN_" + str(args.n_conv_layers) + "_" + str(args.n_lin_layers) + "_" + args.distance + "_" + args.hom_types + "_" + str(args.hidden_size) + "_" + str(args.embedding_size) + "_"  + str(args.lr) + "_" + str(args.batch_size)
         model = GCN_k_m(input_features=dataset.num_node_features, 
                         hidden_channels=args.hidden_size, 
                         output_embeddings=args.embedding_size, 
