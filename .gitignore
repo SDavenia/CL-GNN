@@ -57,3 +57,8 @@ trial.*
 attempts
 run_scripts
 run_scripts_after_tuning
+run_scripts_triplet
+run_scripts64
+main2.py
+main3.py
+

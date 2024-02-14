@@ -123,7 +123,7 @@ def main():
     # Train the model on the training set, saving the best model on the validation set and save some plot of the losses and of the actual vs predicted values.
     # print(f"Training:")
     train_losses, validation_losses = training_loop(model, train_loader, optimizer, criterion, val_loader, epoch_number=args.epochs, patience=args.patience, return_losses=True)
-
+    print(f"Validation loss:\n{min(validation_losses)}")
     # Specify the directory where you want to save the plots and results from the training.
     save_loss_directory = 'results/train_val_loss/' + name
     save_plot_losses(train_losses, validation_losses, save_loss_directory)
@@ -141,6 +141,7 @@ def main():
     model.load_state_dict(torch.load(saved_model_path))
 
     # Obtain predictions on the test set and save the results.
+    print(f"Test loss:")
     y, predictions = score(model, test_loader, device)
     predictions_path = 'results/actual_vs_predicted/' + name + '.png'
     plot_results(y, predictions, save_path = predictions_path)
