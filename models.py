@@ -1,5 +1,5 @@
 """
-This file contains the implementation of the different classes considered.
+This file contains the main model used for training.
 """
 import torch
 from torch.nn import Linear, Parameter, PairwiseDistance, CosineSimilarity
@@ -8,7 +8,7 @@ from torch_geometric.nn.norm import BatchNorm
 
 class GCN_k_m(torch.nn.Module):
     """
-    The base of the network consists of k graph convolutional layers followed by m linear layers (with k >= 1 and m >= 0) to obtain graph embeddings.
+    The base layer of the network consists of k graph convolutional layers followed by m linear layers (with k >= 1 and m >= 0) to obtain graph embeddings.
     conv1 -> ...         -> convk -> meanpool -> linear1 -> relu -> ... -> linearm -> embedding 
 
     For training the network considers two approaches:
@@ -16,6 +16,16 @@ class GCN_k_m(torch.nn.Module):
     - triplet approach: Given three graphs (a, p, n) the network computed the distance between the embeddings of a and p, and the distance between the embeddings of a and n. It then penalizes if this difference is smaller than some pre-specified one. 
     """
     def __init__(self, input_features, hidden_channels, output_embeddings, n_conv_layers, n_linear_layers, name, dist = 'L1'):
+        """
+        Input: 
+            - input_features: The number of input features of the dataset
+            - hidden_channels: The dimension of the hidden representation of the nodes/graphs.
+            - output_embeddings: The dimension of the final embedding.
+            - n_conv_layers: The number of GCN layers to be employed.
+            - n_linear_layers: The number of linear layers to be employed.
+            - name: The name of the model, used for saving.
+            - dist: The distance to be computed on the output embedding when working with CL/TL approaches.
+        """
         super(GCN_k_m, self).__init__()
 
         if n_conv_layers < 1:
@@ -112,6 +122,9 @@ class GCN_k_m(torch.nn.Module):
         return x1, x2, x3
 
     def forward(self, x1, edge_index1, batch1, x2, edge_index2, batch2, x3=None, edge_index3=None, batch3=None):
+        """
+        If the input has three entries it calls forward_triplet_loss, otherwise forward_contrastive_loss is used.
+        """
         if x3 is None:
             # Call Contrastive loss forward.
             return self.forward_contrastive_loss(x1, edge_index1, batch1, x2, edge_index2, batch2)  
@@ -121,7 +134,7 @@ class GCN_k_m(torch.nn.Module):
 
     def save(self):
         """
-        Saves the model state dictionary in models folder
+        Saves the model state dictionary in models folder.
         """
         path = 'models/' + self.name + '.pt'
         torch.save(self.state_dict(), path)

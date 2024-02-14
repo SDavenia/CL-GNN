@@ -1,3 +1,6 @@
+"""
+This file contains the functions used for training the network for both CL and TL approaches.
+"""
 import torch
 from torch.nn import Linear, Parameter
 from torch_geometric.nn import MessagePassing, global_mean_pool, GCNConv
@@ -6,6 +9,9 @@ from torch_geometric.loader import DataLoader
 import time
 
 def epoch_time(start_time, end_time):
+    """
+    Helper function to compute epoch time during training.
+    """
     elapsed_time = end_time - start_time
     elapsed_mins = int(elapsed_time / 60)
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
@@ -13,7 +19,9 @@ def epoch_time(start_time, end_time):
 
 
 def train(model, iterator, optimizer, criterion):
-
+    """
+    Trains the model for one epoch.
+    """
     epoch_loss = 0
     model.train()
 
@@ -38,7 +46,9 @@ def train(model, iterator, optimizer, criterion):
 
 
 def evaluate(model, iterator, criterion):
-
+    """
+    Evaluates the model for one epoch.
+    """
     epoch_loss = 0
     model.eval()
 
@@ -64,9 +74,15 @@ def evaluate(model, iterator, criterion):
 
 def training_loop(model, train_iterator, optimizer, criterion, valid_iterator, epoch_number=100, patience=-1, return_losses=False):
     """
-    Performs training for the specified number of epochs.
-    Then returns training and validation losses if required
-    Implemented parameter patience to control automatic early stopping. If -1 it is same as epoch number so not on.
+    Input:
+        - model: The model to be trained.
+        - train_iterator: The iterator for the training data.
+        - optimizer: The optimizer to be used for training.
+        - criterion: The loss function to be used.
+        - valid_iterator: The iterator for the validation data.
+        - epoch_number: The number of epochs to train the model.
+        - patience: The number of epochs to wait for improvement in validation loss before stopping training. If -1 no early stopping.
+        - return_losses: If True, returns the training and validation losses.
     """
     N_EPOCHS = epoch_number
 

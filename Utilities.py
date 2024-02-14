@@ -1,5 +1,5 @@
 """
-This file contains the necessary Utilities functions
+This file contains the necessary Utilities functions for preparing the DataLoaders and plotting results.
 """
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
@@ -45,33 +45,11 @@ def plot_matrix_runs(matrix_run1, matrix_run2, num_elements):
     plt.show()
     plt.close()
 
-def plot_matrix_runs_different_scale(matrix_run1, matrix_run2, num_elements):
-    """
-    This function takes as input two matrices and plots them next to each other.
-    The same colour scale is used in both
-    """
-
-    cmap = plt.cm.get_cmap('viridis')
-
-    # Set up subplots
-    fig, axs = plt.subplots(1, 2, figsize=(10, 4))
-
-    # Plot matrix_run1
-    plt1 = axs[0].imshow(matrix_run1[0:num_elements, 0:num_elements], cmap=cmap)
-    axs[0].set_title('Run 1')
-    cbar1 = plt.colorbar(plt1, ax=axs[0])  # Add colorbar for matrix_run1
-
-    # Plot matrix_run2
-    plt2 = axs[1].imshow(matrix_run2[0:num_elements, 0:num_elements], cmap=cmap)
-    axs[1].set_title('Run 2')
-    cbar2 = plt.colorbar(plt2, ax=axs[1])  # Add colorbar for matrix_run2
-
-    # Adjust layout to make room for colorbars
-    plt.tight_layout()
-    plt.show()
-    plt.close()
 
 def save_plot_losses(train_losses, validation_losses, save_path):
+    """
+    Saves the train and validation losses along with a plot containing both in the directory specified by save_path
+    """
     # Save plot of train and validation loss, exclude the first one otherwise loss unreadable
     save_img = save_path + '.png'
     plot_losses(train_losses[1:], validation_losses[1:], save_path=save_img)
@@ -88,6 +66,9 @@ def save_plot_losses(train_losses, validation_losses, save_path):
             file.write(f'{loss}\n')
 
 def plot_losses(train_losses, validation_losses, save_path=None):
+    """
+    Saves a plot of train and validation losses in the directory specified by save_path.
+    """
     plt.plot(train_losses, label='train losses')
     plt.plot(validation_losses, label='validation losses')
     plt.xlabel('Epoch')
@@ -102,7 +83,7 @@ def plot_losses(train_losses, validation_losses, save_path=None):
 
 def plot_results(y, predictions, subset = None, save_path=None):
     """
-    Plot of predicted vs actual results.
+    Plot of predicted vs actual results and saves the plot in the directory specified by save_path.
     If subset is specified only subset observations at random will be plotted.
     """
     y_array = y.cpu().numpy()
@@ -135,7 +116,7 @@ def plot_results(y, predictions, subset = None, save_path=None):
 ########################### DataLoader functions ###########################
 class Add_ID_Count_Neighbours:
     """
-    Adds a unique ID to each graph and initializes its node features to the number of neighbours
+    Adds a unique ID to each graph and retains only one feature which is the number of neighbours of each node.
     """
     def __init__(self):
         self.graph_index = 0
@@ -154,6 +135,9 @@ class Add_ID_Count_Neighbours:
         return data
 
 class PairData(Data):
+    """
+    Defines a base Data Object that takes as input two graphs.
+    """
     def __inc__(self, key, value, *args, **kwargs):
         if key == 'edge_index_1':
             return self.x_1.size(0)
@@ -162,6 +146,9 @@ class PairData(Data):
         return super().__inc__(key, value, *args, **kwargs)
 
 class TripletData(Data):
+    """
+    Defines a base Data Object that takes as input three graphs.
+    """
     def __inc__(self, key, value, *args, **kwargs):
         if key == 'edge_index_1':
             return self.x_1.size(0)
@@ -172,6 +159,9 @@ class TripletData(Data):
         return super().__inc__(key, value, *args, **kwargs)
 
 class CustomTripletMarginLoss(torch.nn.Module):
+    """
+    Custom Triplet Loss where margin is included.
+    """
     p: float
 
     def __init__(self, p: float = 2.):
@@ -194,6 +184,9 @@ def prepare_dataloader_contrastive(file_path, dataset, device, batch_size = 32, 
         - batch_size: batch size for the torch loaders.
         - dist: metric to use to compute the distance between two vectors.
         - scaling: specifies whether it should use absolute counts, counts densities.
+        - scale_y: specifies whether the distances should be scaled by the maximum distance in the training set.
+    Output:
+        - train_loader, val_loader, test_loader, test_dataset (the last needed for evaluation purposes).
     """
     # Compute the distance matrix
     if dist not in ['cosine', 'L1', 'L2']:
@@ -304,6 +297,17 @@ def prepare_dataloader_contrastive(file_path, dataset, device, batch_size = 32, 
 
 
 def prepare_dataloader_triplet(dataset, dist_matrix, batch_size, k=10, device='cpu'):
+    """
+    Prepares dataloaders used for training/validation/test with the triplet loss. Note that the first two are triplet loaders, while for the 
+      test_loader, we use a pair loader.
+    Input:
+        - dataset corresponding to the specified homson file.
+        - device: cpu or cuda depending on whether cuda is available.
+        - batch_size: batch size for the torch loaders.
+        - dist_matrix: distance matrix for all pairs of graphs in the dataset.
+    Output:
+        - train_loader, val_loader, test_loader, test_dataset (the last needed for evaluation purposes).
+    """
     dataset = dataset.shuffle()
     train_dataset = dataset[:int(0.7*len(dataset))]
     val_dataset = dataset[int(0.7*len(dataset)):int(0.9*len(dataset))]
@@ -412,6 +416,15 @@ def score(model, loader, device = 'cpu'):
     return y, predictions
 
 def extract_k_closest_homdist(dataset_split, dist_matrix, k = 5):
+    """
+    Given a model and a dataloader, it returns for each graph in the dataset the k closest graphs according to the vectors of homomorphism counts.
+    Input:
+        - dataset_split: split of the dataset to be used.
+        - dist_matrix: distance matrix between the vectors of homomorphism counts.
+        - k: number of closest graphs to be extracted.
+    Output:
+        - closest_ids: dictionary with the closest k graphs for each graph in the dataset, based on the vectors of homomorphism counts.
+    """
     closest_graphs = {}
     farthest_graphs = {}
 
@@ -432,8 +445,17 @@ def extract_k_closest_homdist(dataset_split, dist_matrix, k = 5):
 
     return closest_graphs
 
-
 def extract_k_closest_embedding(model, loader, k):
+    """
+    Given a model and a dataloader, it returns for each graph in the dataset the k closest graphs according to the embeddings obtained by the model.
+    Input:
+        - model: model to be evaluated.
+        - loader: test dataloader to be used for evaluation.
+        - k: number of closest graphs to be extracted.
+    Output:
+        - closest_ids: dictionary with the closest k graphs for each graph in the dataset, based on the embeddings obtained by the model.
+    """
+
     l = sum([len(b) for b in loader])
     predicted_distances = np.array([], dtype=float)
     id1s = np.array([], dtype=int)
@@ -475,6 +497,14 @@ def extract_k_closest_embedding(model, loader, k):
     return closest_ids
 
 def compute_jaccard(closest_graphs_original, closest_graphs_embedding):
+    """
+    Given the closest graphs based on the homomorphism counts and on the embeddings obtained, it returns the average Jaccard similarity between these sets.
+    Input:
+        - closest_graphs_original: dictionary with the closest graphs for each graph in the dataset, based on the vectors of homomorphism counts.
+        - closest_graphs_embedding: dictionary with the closest graphs for each graph in the dataset, based on the embeddings obtained by the model.
+    Output:
+        - jaccard: average Jaccard similarity between the sets of closest graphs.
+    """
     jaccard_similarities = []
     for x in closest_graphs_original.keys():
         original = set(closest_graphs_original[x])
